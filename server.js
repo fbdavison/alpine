@@ -5,10 +5,17 @@ const path = require('path');
 const fs = require('fs');
 const initSqlJs = require('sql.js');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 3000;
 const SESSION_CHILD_LIMIT = 450;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Admin credentials (in production, use a proper user database)
+const ADMIN_USERS = {
+  'admin': 'admin123' // username: password
+};
 
 // Email configuration
 // NOTE: Configure these environment variables or update with your SMTP settings
@@ -316,9 +323,39 @@ async function sendMemberRegistrationEmail(registrationData) {
   }
 }
 
+// Authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/home', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'home.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
 app.get('/general', (req, res) => {
@@ -327,6 +364,95 @@ app.get('/general', (req, res) => {
 
 app.get('/member', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'member.html'));
+});
+
+// Login endpoint
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'Username and password required' });
+  }
+
+  // Check credentials
+  if (ADMIN_USERS[username] && ADMIN_USERS[username] === password) {
+    // Generate JWT token
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ success: true, token, message: 'Login successful' });
+  } else {
+    res.status(401).json({ success: false, message: 'Invalid username or password' });
+  }
+});
+
+// API endpoint to get reservations by session (protected)
+app.get('/api/reservations', authenticateToken, (req, res) => {
+  const { session } = req.query;
+
+  if (!session) {
+    return res.status(400).json({ success: false, message: 'Session parameter required' });
+  }
+
+  try {
+    let reservations = [];
+
+    // Get general registrations
+    const generalResult = db.exec(`
+      SELECT * FROM general_registrations
+      WHERE session = ?
+      ORDER BY created_at DESC
+    `, [session]);
+
+    if (generalResult.length > 0 && generalResult[0].values.length > 0) {
+      const columns = generalResult[0].columns;
+      generalResult[0].values.forEach(row => {
+        const reservation = {};
+        columns.forEach((col, idx) => {
+          reservation[col] = row[idx];
+        });
+        reservation.type = 'general';
+        reservations.push(reservation);
+      });
+    }
+
+    // Get member registrations
+    const memberResult = db.exec(`
+      SELECT * FROM member_registrations
+      WHERE session = ?
+      ORDER BY created_at DESC
+    `, [session]);
+
+    if (memberResult.length > 0 && memberResult[0].values.length > 0) {
+      const columns = memberResult[0].columns;
+      memberResult[0].values.forEach(row => {
+        const reservation = {};
+        columns.forEach((col, idx) => {
+          reservation[col] = row[idx];
+        });
+        reservation.type = 'member';
+        reservations.push(reservation);
+      });
+    }
+
+    // Calculate stats
+    const totalRegistrations = reservations.length;
+    const totalAdults = reservations.reduce((sum, r) => sum + (r.num_adults || 0), 0);
+    const totalChildren = reservations.reduce((sum, r) => sum + (r.num_children || 0), 0);
+    const spotsRemaining = SESSION_CHILD_LIMIT - totalChildren;
+
+    res.json({
+      success: true,
+      reservations,
+      stats: {
+        totalRegistrations,
+        totalAdults,
+        totalChildren,
+        spotsRemaining
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching reservations:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch reservations' });
+  }
 });
 
 // API endpoint to get available general sessions

@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - View Reservations</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+        }
+
+        .logout-btn {
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        }
+
+        .controls {
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .stat-card p {
+            opacity: 0.9;
+        }
+
+        .reservations-section {
+            margin-top: 30px;
+        }
+
+        .section-title {
+            color: #333;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .reservations-grid {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .reservation-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            background: #fafafa;
+            transition: all 0.3s ease;
+        }
+
+        .reservation-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .reservation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .reservation-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .reservation-type {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .type-general {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .type-member {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .reservation-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+        }
+
+        .detail-item {
+            padding: 8px 0;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .detail-value {
+            color: #333;
+            margin-top: 2px;
+        }
+
+        .children-list {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 5px;
+        }
+
+        .children-list-item {
+            padding: 5px 0;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.2em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .error-message {
+            background-color: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .export-btn {
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .export-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Reservation Management</h1>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <div class="controls">
+            <div class="form-group">
+                <label for="sessionSelect">Select Session</label>
+                <select id="sessionSelect">
+                    <option value="">-- Select a session --</option>
+                </select>
+            </div>
+            <button class="export-btn" onclick="exportToCSV()">Export to CSV</button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <h3 id="totalRegistrations">0</h3>
+                <p>Total Registrations</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalAdults">0</h3>
+                <p>Total Adults</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="totalChildren">0</h3>
+                <p>Total Children</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="spotsRemaining">0</h3>
+                <p>Child Spots Remaining</p>
+            </div>
+        </div>
+
+        <div id="reservationsContainer"></div>
+    </div>
+
+    <script>
+        let currentSession = '';
+        let allReservations = [];
+
+        // Check authentication
+        const authToken = localStorage.getItem('auth_token');
+        if (!authToken) {
+            window.location.href = '/login';
+        }
+
+        // Load all sessions
+        async function loadSessions() {
+            try {
+                const [generalResponse, memberResponse] = await Promise.all([
+                    fetch('/api/sessions/general'),
+                    fetch('/api/sessions/member')
+                ]);
+
+                const generalData = await generalResponse.json();
+                const memberData = await memberResponse.json();
+
+                const allSessions = new Set();
+
+                if (generalData.success) {
+                    generalData.sessions.forEach(s => allSessions.add(s.session));
+                }
+
+                if (memberData.success) {
+                    memberData.sessions.forEach(s => allSessions.add(s.session));
+                }
+
+                const sessionSelect = document.getElementById('sessionSelect');
+                allSessions.forEach(session => {
+                    const option = document.createElement('option');
+                    option.value = session;
+                    option.textContent = session;
+                    sessionSelect.appendChild(option);
+                });
+
+                // Add event listener
+                sessionSelect.addEventListener('change', (e) => {
+                    currentSession = e.target.value;
+                    if (currentSession) {
+                        loadReservations(currentSession);
+                    } else {
+                        document.getElementById('reservationsContainer').innerHTML = '';
+                        document.getElementById('stats').style.display = 'none';
+                    }
+                });
+            } catch (error) {
+                showError('Failed to load sessions');
+            }
+        }
+
+        // Load reservations for a specific session
+        async function loadReservations(session) {
+            const container = document.getElementById('reservationsContainer');
+            container.innerHTML = '<div class="loading">Loading reservations...</div>';
+
+            try {
+                const response = await fetch(`/api/reservations?session=${encodeURIComponent(session)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('auth_token');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    throw new Error(data.message || 'Failed to load reservations');
+                }
+
+                if (data.success) {
+                    allReservations = data.reservations;
+                    displayReservations(data.reservations, data.stats);
+                } else {
+                    showError(data.message || 'Failed to load reservations');
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // Display reservations
+        function displayReservations(reservations, stats) {
+            const container = document.getElementById('reservationsContainer');
+
+            // Update stats
+            document.getElementById('stats').style.display = 'grid';
+            document.getElementById('totalRegistrations').textContent = stats.totalRegistrations;
+            document.getElementById('totalAdults').textContent = stats.totalAdults;
+            document.getElementById('totalChildren').textContent = stats.totalChildren;
+            document.getElementById('spotsRemaining').textContent = stats.spotsRemaining;
+
+            if (reservations.length === 0) {
+                container.innerHTML = '<div class="no-data">No reservations found for this session.</div>';
+                return;
+            }
+
+            // Separate by type
+            const generalReservations = reservations.filter(r => r.type === 'general');
+            const memberReservations = reservations.filter(r => r.type === 'member');
+
+            let html = '';
+
+            // Display general registrations
+            if (generalReservations.length > 0) {
+                html += '<div class="reservations-section">';
+                html += '<h2 class="section-title">General Registrations (' + generalReservations.length + ')</h2>';
+                html += '<div class="reservations-grid">';
+                generalReservations.forEach(reservation => {
+                    html += createReservationCard(reservation, 'general');
+                });
+                html += '</div></div>';
+            }
+
+            // Display member registrations
+            if (memberReservations.length > 0) {
+                html += '<div class="reservations-section">';
+                html += '<h2 class="section-title">Member + Guest Registrations (' + memberReservations.length + ')</h2>';
+                html += '<div class="reservations-grid">';
+                memberReservations.forEach(reservation => {
+                    html += createReservationCard(reservation, 'member');
+                });
+                html += '</div></div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Create a reservation card
+        function createReservationCard(reservation, type) {
+            const childrenDetails = reservation.children_details ?
+                JSON.parse(reservation.children_details) : [];
+
+            let html = '<div class="reservation-card">';
+            html += '<div class="reservation-header">';
+            html += '<div class="reservation-name">' + escapeHtml(reservation.first_name) + ' ' + escapeHtml(reservation.last_name) + '</div>';
+            html += '<span class="reservation-type type-' + type + '">' + (type === 'general' ? 'General' : 'Member + Guest') + '</span>';
+            html += '</div>';
+
+            html += '<div class="reservation-details">';
+
+            if (type === 'member') {
+                html += '<div class="detail-item">';
+                html += '<div class="detail-label">Member Name</div>';
+                html += '<div class="detail-value">' + escapeHtml(reservation.member_first_name) + ' ' + escapeHtml(reservation.member_last_name) + '</div>';
+                html += '</div>';
+            }
+
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Email</div>';
+            html += '<div class="detail-value">' + escapeHtml(reservation.email) + '</div>';
+            html += '</div>';
+
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Phone</div>';
+            html += '<div class="detail-value">' + escapeHtml(reservation.phone) + '</div>';
+            html += '</div>';
+
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Address</div>';
+            html += '<div class="detail-value">' + escapeHtml(reservation.street_address) + ', ' +
+                    escapeHtml(reservation.city) + ', ' + escapeHtml(reservation.state) + ' ' +
+                    escapeHtml(reservation.zip) + '</div>';
+            html += '</div>';
+
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Adults</div>';
+            html += '<div class="detail-value">' + reservation.num_adults + '</div>';
+            html += '</div>';
+
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Children</div>';
+            html += '<div class="detail-value">' + reservation.num_children + '</div>';
+            html += '</div>';
+
+            if (childrenDetails.length > 0) {
+                html += '<div class="detail-item" style="grid-column: 1 / -1;">';
+                html += '<div class="detail-label">Children Details</div>';
+                html += '<div class="children-list">';
+                childrenDetails.forEach((child, index) => {
+                    html += '<div class="children-list-item">' + (index + 1) + '. ' +
+                            escapeHtml(child.name) + ' (Age: ' + escapeHtml(child.age) + ')</div>';
+                });
+                html += '</div></div>';
+            }
+
+            if (reservation.comments) {
+                html += '<div class="detail-item" style="grid-column: 1 / -1;">';
+                html += '<div class="detail-label">Comments</div>';
+                html += '<div class="detail-value">' + escapeHtml(reservation.comments) + '</div>';
+                html += '</div>';
+            }
+
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Request Church Info</div>';
+            html += '<div class="detail-value">' + (reservation.request_church_info ? 'Yes' : 'No') + '</div>';
+            html += '</div>';
+
+            html += '<div class="detail-item">';
+            html += '<div class="detail-label">Registration Date</div>';
+            html += '<div class="detail-value">' + new Date(reservation.created_at).toLocaleString() + '</div>';
+            html += '</div>';
+
+            html += '</div></div>';
+
+            return html;
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            if (!currentSession || allReservations.length === 0) {
+                alert('Please select a session with reservations first');
+                return;
+            }
+
+            let csv = 'Type,First Name,Last Name,Email,Phone,Address,City,State,Zip,Adults,Children,Children Details,Comments,Request Church Info,Registration Date\n';
+
+            allReservations.forEach(r => {
+                const childrenDetails = r.children_details ?
+                    JSON.parse(r.children_details).map(c => `${c.name} (${c.age})`).join('; ') : '';
+
+                const row = [
+                    r.type === 'general' ? 'General' : 'Member+Guest',
+                    r.first_name,
+                    r.last_name,
+                    r.email,
+                    r.phone,
+                    r.street_address,
+                    r.city,
+                    r.state,
+                    r.zip,
+                    r.num_adults,
+                    r.num_children,
+                    childrenDetails,
+                    r.comments || '',
+                    r.request_church_info ? 'Yes' : 'No',
+                    new Date(r.created_at).toLocaleString()
+                ].map(field => `"${String(field).replace(/"/g, '""')}"`);
+
+                csv += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reservations-${currentSession.replace(/[^a-z0-9]/gi, '_')}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('auth_token');
+            window.location.href = '/login';
+        }
+
+        // Show error
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            document.getElementById('reservationsContainer').innerHTML = '';
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize
+        loadSessions();
+    </script>
+</body>
+</html>
