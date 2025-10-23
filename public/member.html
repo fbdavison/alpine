@@ -320,7 +320,7 @@
                         result.sessions.forEach(sessionData => {
                             const option = document.createElement('option');
                             option.value = sessionData.session;
-                            option.textContent = `${sessionData.session} (${sessionData.spotsRemaining} child spots remaining)`;
+                            option.textContent = sessionData.session;
                             sessionSelect.appendChild(option);
                         });
                     }
