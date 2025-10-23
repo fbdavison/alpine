@@ -278,14 +278,7 @@
             <div class="form-group">
                 <label for="session">Session *</label>
                 <select id="session" name="session" required>
-                    <option value="">Select a session...</option>
-                    <option value="Wednesday December 10, 2025 6:00-8:30p">Wednesday December 10, 2025 6:00-8:30p (Friends & Family)</option>
-                    <option value="Thursday December 11, 2025 6:00-8:30p">Thursday December 11, 2025 6:00-8:30p</option>
-                    <option value="Friday December 12, 2025 6:00-8:30p">Friday December 12, 2025 6:00-8:30p</option>
-                    <option value="Saturday December 13, 2025 2:00-4:30p">Saturday December 13, 2025 2:00-4:30p</option>
-                    <option value="Saturday December 13, 2025 6:00-8:30p">Saturday December 13, 2025 6:00-8:30p</option>
-                    <option value="Sunday December 14, 2025 2:00-4:30p">Sunday December 14, 2025 2:00-4:30p</option>
-                    <option value="Sunday December 14, 2025 6:00-8:30p">Sunday December 14, 2025 6:00-8:30p</option>
+                    <option value="">Loading sessions...</option>
                 </select>
             </div>
             
@@ -308,7 +301,43 @@
         const childrenSection = document.getElementById('childrenSection');
         const childrenInputs = document.getElementById('childrenInputs');
         const form = document.getElementById('registrationForm');
-        
+        const sessionSelect = document.getElementById('session');
+
+        // Fetch and populate available sessions
+        async function loadAvailableSessions() {
+            try {
+                const response = await fetch('/api/sessions/member');
+                const result = await response.json();
+
+                if (result.success) {
+                    sessionSelect.innerHTML = '<option value="">Select a session...</option>';
+
+                    if (result.sessions.length === 0) {
+                        sessionSelect.innerHTML = '<option value="">All sessions are full</option>';
+                        sessionSelect.disabled = true;
+                        alert('All sessions have reached their capacity. Please check back later.');
+                    } else {
+                        result.sessions.forEach(sessionData => {
+                            const option = document.createElement('option');
+                            option.value = sessionData.session;
+                            option.textContent = `${sessionData.session} (${sessionData.spotsRemaining} child spots remaining)`;
+                            sessionSelect.appendChild(option);
+                        });
+                    }
+                } else {
+                    sessionSelect.innerHTML = '<option value="">Error loading sessions</option>';
+                    alert('Failed to load available sessions. Please refresh the page.');
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                sessionSelect.innerHTML = '<option value="">Error loading sessions</option>';
+                alert('Failed to load available sessions. Please refresh the page.');
+            }
+        }
+
+        // Load sessions when page loads
+        loadAvailableSessions();
+
         numChildrenSelect.addEventListener('change', function() {
             const numChildren = parseInt(this.value);
             childrenInputs.innerHTML = '';
