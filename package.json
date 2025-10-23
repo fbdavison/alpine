@@ -1,0 +1,17 @@
+{
+  "name": "event-registration",
+  "version": "1.0.0",
+  "description": "Event registration system with two forms and SQLite database",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["registration", "event", "forms"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "sql.js": "^1.8.0",
+    "body-parser": "^1.20.2"
+  }
+}

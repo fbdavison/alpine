@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member + Guest Registration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #f5576c;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f093fb;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #f093fb;
+        }
+        
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .children-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .child-entry {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-submit {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            margin-top: 20px;
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(240, 147, 251, 0.4);
+        }
+        
+        .btn-back {
+            background: #6c757d;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .btn-back:hover {
+            background: #5a6268;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .member-section {
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button onclick="window.location.href='/'" class="btn btn-back">← Back to Home</button>
+        
+        <h1>Member + Guest Registration</h1>
+        <p class="subtitle">Please fill out all required fields</p>
+        
+        <div id="successMessage" class="success-message"></div>
+        <div id="errorMessage" class="error-message"></div>
+        
+        <form id="registrationForm">
+            <div class="member-section">
+                <h2>Member Information</h2>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="memberFirstName">Member First Name *</label>
+                        <input type="text" id="memberFirstName" name="member_first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="memberLastName">Member Last Name *</label>
+                        <input type="text" id="memberLastName" name="member_last_name" required>
+                    </div>
+                </div>
+            </div>
+            
+            <h2>Guest Information</h2>
+            
+            <div class="row">
+                <div class="form-group">
+                    <label for="firstName">First Name *</label>
+                    <input type="text" id="firstName" name="first_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Last Name *</label>
+                    <input type="text" id="lastName" name="last_name" required>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number *</label>
+                    <input type="tel" id="phone" name="phone" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="streetAddress">Street Address *</label>
+                <input type="text" id="streetAddress" name="street_address" required>
+            </div>
+            
+            <div class="row">
+                <div class="form-group">
+                    <label for="city">City *</label>
+                    <input type="text" id="city" name="city" required>
+                </div>
+                <div class="form-group">
+                    <label for="state">State *</label>
+                    <input type="text" id="state" name="state" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="zip">Zip Code *</label>
+                <input type="text" id="zip" name="zip" required>
+            </div>
+            
+            <div class="row">
+                <div class="form-group">
+                    <label for="numAdults">Number of Adults *</label>
+                    <select id="numAdults" name="num_adults" required>
+                        <option value="">Select...</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="numChildren">Number of Children *</label>
+                    <select id="numChildren" name="num_children" required>
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="childrenSection" class="children-section" style="display: none;">
+                <h3>Children Information</h3>
+                <div id="childrenInputs"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="session">Session *</label>
+                <select id="session" name="session" required>
+                    <option value="">Select a session...</option>
+                    <option value="Wednesday December 10, 2025 6:00-8:30p">Wednesday December 10, 2025 6:00-8:30p (Friends & Family)</option>
+                    <option value="Thursday December 11, 2025 6:00-8:30p">Thursday December 11, 2025 6:00-8:30p</option>
+                    <option value="Friday December 12, 2025 6:00-8:30p">Friday December 12, 2025 6:00-8:30p</option>
+                    <option value="Saturday December 13, 2025 2:00-4:30p">Saturday December 13, 2025 2:00-4:30p</option>
+                    <option value="Saturday December 13, 2025 6:00-8:30p">Saturday December 13, 2025 6:00-8:30p</option>
+                    <option value="Sunday December 14, 2025 2:00-4:30p">Sunday December 14, 2025 2:00-4:30p</option>
+                    <option value="Sunday December 14, 2025 6:00-8:30p">Sunday December 14, 2025 6:00-8:30p</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="comments">Comments</label>
+                <textarea id="comments" name="comments"></textarea>
+            </div>
+            
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="requestChurchInfo" name="request_church_info">
+                <label for="requestChurchInfo">Request Church Information</label>
+            </div>
+            
+            <button type="submit" class="btn btn-submit">Submit Registration</button>
+        </form>
+    </div>
+    
+    <script>
+        const numChildrenSelect = document.getElementById('numChildren');
+        const childrenSection = document.getElementById('childrenSection');
+        const childrenInputs = document.getElementById('childrenInputs');
+        const form = document.getElementById('registrationForm');
+        
+        numChildrenSelect.addEventListener('change', function() {
+            const numChildren = parseInt(this.value);
+            childrenInputs.innerHTML = '';
+            
+            if (numChildren > 0) {
+                childrenSection.style.display = 'block';
+                for (let i = 1; i <= numChildren; i++) {
+                    const childDiv = document.createElement('div');
+                    childDiv.className = 'child-entry';
+                    childDiv.innerHTML = `
+                        <div class="form-group">
+                            <label for="childName${i}">Child ${i} Name *</label>
+                            <input type="text" id="childName${i}" name="child_name_${i}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="childAge${i}">Age *</label>
+                            <input type="text" id="childAge${i}" name="child_age_${i}" required>
+                        </div>
+                    `;
+                    childrenInputs.appendChild(childDiv);
+                }
+            } else {
+                childrenSection.style.display = 'none';
+            }
+        });
+        
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            const data = {};
+            
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            // Collect children details
+            const numChildren = parseInt(data.num_children);
+            if (numChildren > 0) {
+                const childrenDetails = [];
+                for (let i = 1; i <= numChildren; i++) {
+                    childrenDetails.push({
+                        name: data[`child_name_${i}`],
+                        age: data[`child_age_${i}`]
+                    });
+                }
+                data.children_details = JSON.stringify(childrenDetails);
+            }
+            
+            data.request_church_info = document.getElementById('requestChurchInfo').checked;
+            
+            try {
+                const response = await fetch('/api/register/member', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('successMessage').textContent = result.message;
+                    document.getElementById('successMessage').style.display = 'block';
+                    document.getElementById('errorMessage').style.display = 'none';
+                    form.reset();
+                    childrenSection.style.display = 'none';
+                    window.scrollTo(0, 0);
+                } else {
+                    document.getElementById('errorMessage').textContent = result.message;
+                    document.getElementById('errorMessage').style.display = 'block';
+                    document.getElementById('successMessage').style.display = 'none';
+                }
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+                document.getElementById('errorMessage').style.display = 'block';
+                document.getElementById('successMessage').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
