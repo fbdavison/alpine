@@ -1,12 +1,26 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
 const initSqlJs = require('sql.js');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = 3000;
 const SESSION_CHILD_LIMIT = 450;
+
+// Email configuration
+// NOTE: Configure these environment variables or update with your SMTP settings
+const emailTransporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: process.env.SMTP_PORT || 587,
+  secure: false, // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER || 'your-email@example.com',
+    pass: process.env.SMTP_PASS || 'your-password'
+  }
+});
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -139,6 +153,169 @@ const MEMBER_SESSIONS = [
   ...GENERAL_SESSIONS
 ];
 
+// Email sending functions
+async function sendGeneralRegistrationEmail(registrationData) {
+  const childrenList = registrationData.children_details
+    ? JSON.parse(registrationData.children_details).map((child, index) =>
+        `${index + 1}. ${child.name} (Age: ${child.age})`
+      ).join('\n        ')
+    : 'None';
+
+  const mailOptions = {
+    from: process.env.SMTP_USER || 'your-email@example.com',
+    to: registrationData.email,
+    subject: 'Registration Confirmation - Event Registration',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #667eea;">Registration Confirmation</h2>
+        <p>Dear ${registrationData.first_name} ${registrationData.last_name},</p>
+        <p>Thank you for registering for our event. Your registration has been confirmed.</p>
+
+        <h3 style="color: #764ba2;">Registration Details:</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Name:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.first_name} ${registrationData.last_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.email}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.phone}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Address:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.street_address}, ${registrationData.city}, ${registrationData.state} ${registrationData.zip}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Session:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.session}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Adults:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_adults}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Children:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_children}</td>
+          </tr>
+          ${registrationData.num_children > 0 ? `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Children:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><pre style="margin: 0; font-family: Arial, sans-serif;">${childrenList}</pre></td>
+          </tr>
+          ` : ''}
+          ${registrationData.comments ? `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Comments:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.comments}</td>
+          </tr>
+          ` : ''}
+        </table>
+
+        <p style="margin-top: 20px;">We look forward to seeing you at the event!</p>
+        <p>If you have any questions, please don't hesitate to contact us.</p>
+
+        <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated confirmation email. Please do not reply to this message.</p>
+      </div>
+    `
+  };
+
+  try {
+    await emailTransporter.sendMail(mailOptions);
+    console.log('Email sent successfully to:', registrationData.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return false;
+  }
+}
+
+async function sendMemberRegistrationEmail(registrationData) {
+  const childrenList = registrationData.children_details
+    ? JSON.parse(registrationData.children_details).map((child, index) =>
+        `${index + 1}. ${child.name} (Age: ${child.age})`
+      ).join('\n        ')
+    : 'None';
+
+  const mailOptions = {
+    from: process.env.SMTP_USER || 'your-email@example.com',
+    to: registrationData.email,
+    subject: 'Registration Confirmation - Member + Guest Registration',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #f093fb;">Member + Guest Registration Confirmation</h2>
+        <p>Dear ${registrationData.first_name} ${registrationData.last_name},</p>
+        <p>Thank you for registering for our event. Your registration has been confirmed.</p>
+
+        <h3 style="color: #f5576c;">Registration Details:</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Member Name:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.member_first_name} ${registrationData.member_last_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Guest Name:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.first_name} ${registrationData.last_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.email}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.phone}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Address:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.street_address}, ${registrationData.city}, ${registrationData.state} ${registrationData.zip}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Session:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.session}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Adults:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_adults}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Children:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_children}</td>
+          </tr>
+          ${registrationData.num_children > 0 ? `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Children:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><pre style="margin: 0; font-family: Arial, sans-serif;">${childrenList}</pre></td>
+          </tr>
+          ` : ''}
+          ${registrationData.comments ? `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Comments:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.comments}</td>
+          </tr>
+          ` : ''}
+        </table>
+
+        <p style="margin-top: 20px;">We look forward to seeing you at the event!</p>
+        <p>If you have any questions, please don't hesitate to contact us.</p>
+
+        <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated confirmation email. Please do not reply to this message.</p>
+      </div>
+    `
+  };
+
+  try {
+    await emailTransporter.sendMail(mailOptions);
+    console.log('Email sent successfully to:', registrationData.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending email:', error);
+    return false;
+  }
+}
+
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -185,7 +362,7 @@ app.get('/api/sessions/member', (req, res) => {
 });
 
 // Handle general registration form submission
-app.post('/api/register/general', (req, res) => {
+app.post('/api/register/general', async (req, res) => {
   const {
     first_name, last_name, email, phone, street_address, city, state, zip,
     num_adults, num_children, children_details, comments, request_church_info, session
@@ -222,6 +399,24 @@ app.post('/api/register/general', (req, res) => {
     );
 
     saveDatabase();
+
+    // Send confirmation email
+    await sendGeneralRegistrationEmail({
+      first_name,
+      last_name,
+      email,
+      phone,
+      street_address,
+      city,
+      state,
+      zip,
+      num_adults,
+      num_children,
+      children_details,
+      comments,
+      session
+    });
+
     res.json({ success: true, message: 'Registration successful!' });
   } catch (err) {
     console.error('Error inserting general registration:', err);
@@ -230,7 +425,7 @@ app.post('/api/register/general', (req, res) => {
 });
 
 // Handle member registration form submission
-app.post('/api/register/member', (req, res) => {
+app.post('/api/register/member', async (req, res) => {
   const {
     member_first_name, member_last_name, first_name, last_name, email, phone,
     street_address, city, state, zip, num_adults, num_children, children_details,
@@ -269,6 +464,26 @@ app.post('/api/register/member', (req, res) => {
     );
 
     saveDatabase();
+
+    // Send confirmation email
+    await sendMemberRegistrationEmail({
+      member_first_name,
+      member_last_name,
+      first_name,
+      last_name,
+      email,
+      phone,
+      street_address,
+      city,
+      state,
+      zip,
+      num_adults,
+      num_children,
+      children_details,
+      comments,
+      session
+    });
+
     res.json({ success: true, message: 'Registration successful!' });
   } catch (err) {
     console.error('Error inserting member registration:', err);

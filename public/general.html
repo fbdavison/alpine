@@ -356,10 +356,17 @@
                 });
                 
                 const result = await response.json();
-                
+
                 if (result.success) {
-                    document.getElementById('successMessage').textContent = result.message;
-                    document.getElementById('successMessage').style.display = 'block';
+                    const successMsg = document.getElementById('successMessage');
+                    successMsg.innerHTML = `
+                        <strong>Registration Successful!</strong><br><br>
+                        Thank you for registering. A confirmation email has been sent to <strong>${data.email}</strong> with your registration details.<br><br>
+                        <strong>Session:</strong> ${data.session}<br>
+                        <strong>Number of Adults:</strong> ${data.num_adults}<br>
+                        <strong>Number of Children:</strong> ${data.num_children}
+                    `;
+                    successMsg.style.display = 'block';
                     document.getElementById('errorMessage').style.display = 'none';
                     form.reset();
                     childrenSection.style.display = 'none';

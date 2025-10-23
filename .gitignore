@@ -3,3 +3,6 @@ node_modules/
 
 # Database files (contains user data)
 registrations.db
+
+# Environment variables (contains sensitive data)
+.env
