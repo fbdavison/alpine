@@ -328,31 +328,32 @@
         // Load all sessions
         async function loadSessions() {
             try {
-                const [generalResponse, memberResponse] = await Promise.all([
-                    fetch('/api/sessions/general'),
-                    fetch('/api/sessions/member')
-                ]);
-
-                const generalData = await generalResponse.json();
-                const memberData = await memberResponse.json();
-
-                const allSessions = new Set();
-
-                if (generalData.success) {
-                    generalData.sessions.forEach(s => allSessions.add(s.session));
-                }
-
-                if (memberData.success) {
-                    memberData.sessions.forEach(s => allSessions.add(s.session));
-                }
-
-                const sessionSelect = document.getElementById('sessionSelect');
-                allSessions.forEach(session => {
-                    const option = document.createElement('option');
-                    option.value = session;
-                    option.textContent = session;
-                    sessionSelect.appendChild(option);
+                const response = await fetch('/api/sessions/all', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
                 });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('auth_token');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    throw new Error(data.message || 'Failed to load sessions');
+                }
+
+                if (data.success) {
+                    const sessionSelect = document.getElementById('sessionSelect');
+                    data.sessions.forEach(s => {
+                        const option = document.createElement('option');
+                        option.value = s.session;
+                        option.textContent = s.session + (s.available ? '' : ' (FULL)');
+                        sessionSelect.appendChild(option);
+                    });
+                }
 
                 // Add event listener
                 sessionSelect.addEventListener('change', (e) => {

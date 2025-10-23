@@ -568,6 +568,21 @@ app.get('/api/sessions/member', (req, res) => {
   }
 });
 
+// API endpoint to get all sessions for admin (including full ones)
+app.get('/api/sessions/all', authenticateToken, (req, res) => {
+  try {
+    const sessionNames = getSessionsFromDB('all');
+    const sessionsWithCounts = getAllSessionsWithCounts(sessionNames);
+    res.json({
+      success: true,
+      sessions: sessionsWithCounts
+    });
+  } catch (err) {
+    console.error('Error fetching all sessions:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch sessions' });
+  }
+});
+
 // Handle general registration form submission
 app.post('/api/register/general', async (req, res) => {
   const {
