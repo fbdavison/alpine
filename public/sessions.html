@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: #333;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(132, 250, 176, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #333;
+        }
+
+        .btn-small {
+            padding: 5px 15px;
+            font-size: 0.9em;
+        }
+
+        .sessions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .sessions-table th,
+        .sessions-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .sessions-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .sessions-table tr:hover {
+            background: #fafafa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .type-general {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .type-member {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .type-both {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .modal-header h2 {
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group-checkbox input[type="checkbox"] {
+            width: auto;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .error-message {
+            background-color: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .success-message {
+            background-color: #efe;
+            color: #3c3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .capacity-bar {
+            width: 100px;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .capacity-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .capacity-low {
+            background: #84fab0;
+        }
+
+        .capacity-medium {
+            background: #fee140;
+        }
+
+        .capacity-high {
+            background: #fa709a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Session Management</h1>
+            <div class="header-buttons">
+                <button class="btn btn-success" onclick="showAddModal()">Add New Session</button>
+                <button class="btn btn-secondary" onclick="window.location.href='/admin'">Back to Reservations</button>
+                <button class="btn btn-secondary" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div id="message"></div>
+
+        <div id="sessionsContainer"></div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="sessionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add New Session</h2>
+            </div>
+
+            <form id="sessionForm">
+                <input type="hidden" id="sessionId">
+
+                <div class="form-group">
+                    <label for="sessionName">Session Name *</label>
+                    <input type="text" id="sessionName" required placeholder="e.g., Thursday December 11, 2025 6:00-8:30p">
+                </div>
+
+                <div class="form-group">
+                    <label for="sessionType">Session Type *</label>
+                    <select id="sessionType" required>
+                        <option value="">-- Select Type --</option>
+                        <option value="general">General Only</option>
+                        <option value="member">Member Only</option>
+                        <option value="both">Both (General & Member)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="childLimit">Child Limit *</label>
+                    <input type="number" id="childLimit" required min="1" value="450">
+                </div>
+
+                <div class="form-group">
+                    <label for="displayOrder">Display Order</label>
+                    <input type="number" id="displayOrder" min="0" value="0">
+                </div>
+
+                <div class="form-group form-group-checkbox">
+                    <input type="checkbox" id="isActive" checked>
+                    <label for="isActive">Active</label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Session</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const authToken = localStorage.getItem('auth_token');
+        if (!authToken) {
+            window.location.href = '/login';
+        }
+
+        let sessions = [];
+
+        // Load sessions
+        async function loadSessions() {
+            const container = document.getElementById('sessionsContainer');
+            container.innerHTML = '<div class="loading">Loading sessions...</div>';
+
+            try {
+                const response = await fetch('/api/admin/sessions', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('auth_token');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    throw new Error(data.message || 'Failed to load sessions');
+                }
+
+                if (data.success) {
+                    sessions = data.sessions;
+                    displaySessions(sessions);
+                } else {
+                    showError(data.message || 'Failed to load sessions');
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // Display sessions
+        function displaySessions(sessions) {
+            const container = document.getElementById('sessionsContainer');
+
+            if (sessions.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 40px; color: #666;">No sessions found. Click "Add New Session" to create one.</p>';
+                return;
+            }
+
+            let html = '<table class="sessions-table">';
+            html += '<thead><tr>';
+            html += '<th>Session Name</th>';
+            html += '<th>Type</th>';
+            html += '<th>Child Limit</th>';
+            html += '<th>Current / Remaining</th>';
+            html += '<th>Capacity</th>';
+            html += '<th>Status</th>';
+            html += '<th>Order</th>';
+            html += '<th>Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            sessions.forEach(session => {
+                const percentage = (session.currentChildCount / session.child_limit) * 100;
+                let capacityClass = 'capacity-low';
+                if (percentage >= 80) capacityClass = 'capacity-high';
+                else if (percentage >= 50) capacityClass = 'capacity-medium';
+
+                html += '<tr>';
+                html += '<td>' + escapeHtml(session.name) + '</td>';
+                html += '<td><span class="type-badge type-' + session.type + '">' + session.type.charAt(0).toUpperCase() + session.type.slice(1) + '</span></td>';
+                html += '<td>' + session.child_limit + '</td>';
+                html += '<td>' + session.currentChildCount + ' / ' + session.spotsRemaining + '</td>';
+                html += '<td><div class="capacity-bar"><div class="capacity-fill ' + capacityClass + '" style="width: ' + Math.min(percentage, 100) + '%"></div></div></td>';
+                html += '<td><span class="status-badge status-' + (session.is_active ? 'active' : 'inactive') + '">' + (session.is_active ? 'Active' : 'Inactive') + '</span></td>';
+                html += '<td>' + session.display_order + '</td>';
+                html += '<td><div class="action-buttons">';
+                html += '<button class="btn btn-primary btn-small" onclick="editSession(' + session.id + ')">Edit</button>';
+                html += '<button class="btn btn-danger btn-small" onclick="deleteSession(' + session.id + ', \'' + escapeHtml(session.name) + '\')">Delete</button>';
+                html += '</div></td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        // Show add modal
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add New Session';
+            document.getElementById('sessionForm').reset();
+            document.getElementById('sessionId').value = '';
+            document.getElementById('isActive').checked = true;
+            document.getElementById('sessionModal').classList.add('active');
+        }
+
+        // Edit session
+        function editSession(id) {
+            const session = sessions.find(s => s.id === id);
+            if (!session) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit Session';
+            document.getElementById('sessionId').value = session.id;
+            document.getElementById('sessionName').value = session.name;
+            document.getElementById('sessionType').value = session.type;
+            document.getElementById('childLimit').value = session.child_limit;
+            document.getElementById('displayOrder').value = session.display_order;
+            document.getElementById('isActive').checked = session.is_active === 1;
+            document.getElementById('sessionModal').classList.add('active');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('sessionModal').classList.remove('active');
+        }
+
+        // Handle form submission
+        document.getElementById('sessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const id = document.getElementById('sessionId').value;
+            const data = {
+                name: document.getElementById('sessionName').value,
+                type: document.getElementById('sessionType').value,
+                child_limit: parseInt(document.getElementById('childLimit').value),
+                display_order: parseInt(document.getElementById('displayOrder').value) || 0,
+                is_active: document.getElementById('isActive').checked
+            };
+
+            try {
+                const url = id ? `/api/admin/sessions/${id}` : '/api/admin/sessions';
+                const method = id ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    closeModal();
+                    loadSessions();
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+
+        // Delete session
+        async function deleteSession(id, name) {
+            if (!confirm(`Are you sure you want to delete the session "${name}"?\n\nIf there are existing registrations, it will be deactivated instead.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/sessions/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    loadSessions();
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = '<div class="error-message">' + escapeHtml(message) + '</div>';
+            setTimeout(() => { messageDiv.innerHTML = ''; }, 5000);
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = '<div class="success-message">' + escapeHtml(message) + '</div>';
+            setTimeout(() => { messageDiv.innerHTML = ''; }, 3000);
+        }
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('auth_token');
+            window.location.href = '/login';
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize
+        loadSessions();
+    </script>
+</body>
+</html>

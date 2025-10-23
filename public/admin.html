@@ -41,6 +41,11 @@
             font-size: 2.5em;
         }
 
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
         .logout-btn {
             padding: 10px 25px;
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -55,6 +60,22 @@
         .logout-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        }
+
+        .manage-sessions-btn {
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: #333;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .manage-sessions-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(132, 250, 176, 0.4);
         }
 
         .controls {
@@ -254,7 +275,10 @@
     <div class="container">
         <div class="header">
             <h1>Reservation Management</h1>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <div class="header-buttons">
+                <button class="manage-sessions-btn" onclick="window.location.href='/sessions'">Manage Sessions</button>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
         </div>
 
         <div id="errorMessage" class="error-message" style="display: none;"></div>
