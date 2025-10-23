@@ -329,9 +329,8 @@
                     <label for="sessionType">Session Type *</label>
                     <select id="sessionType" required>
                         <option value="">-- Select Type --</option>
-                        <option value="general">General Only</option>
-                        <option value="member">Member Only</option>
-                        <option value="both">Both (General & Member)</option>
+                        <option value="member">Friends and Family</option>
+                        <option value="both">General Session</option>
                     </select>
                 </div>
 
@@ -400,6 +399,16 @@
             }
         }
 
+        // Get friendly session type name
+        function getSessionTypeName(type) {
+            const typeNames = {
+                'member': 'Friends and Family',
+                'both': 'General Session',
+                'general': 'General Session'
+            };
+            return typeNames[type] || type;
+        }
+
         // Display sessions
         function displaySessions(sessions) {
             const container = document.getElementById('sessionsContainer');
@@ -427,9 +436,11 @@
                 if (percentage >= 80) capacityClass = 'capacity-high';
                 else if (percentage >= 50) capacityClass = 'capacity-medium';
 
+                const typeName = getSessionTypeName(session.type);
+
                 html += '<tr>';
                 html += '<td>' + escapeHtml(session.name) + '</td>';
-                html += '<td><span class="type-badge type-' + session.type + '">' + session.type.charAt(0).toUpperCase() + session.type.slice(1) + '</span></td>';
+                html += '<td><span class="type-badge type-' + session.type + '">' + typeName + '</span></td>';
                 html += '<td>' + session.child_limit + '</td>';
                 html += '<td>' + session.currentChildCount + ' / ' + session.spotsRemaining + '</td>';
                 html += '<td><div class="capacity-bar"><div class="capacity-fill ' + capacityClass + '" style="width: ' + Math.min(percentage, 100) + '%"></div></div></td>';

@@ -776,10 +776,10 @@ app.post('/api/admin/sessions', authenticateToken, (req, res) => {
     });
   }
 
-  if (!['general', 'member', 'both'].includes(type)) {
+  if (!['member', 'both'].includes(type)) {
     return res.status(400).json({
       success: false,
-      message: 'Type must be general, member, or both'
+      message: 'Type must be member (Friends and Family) or both (General Session)'
     });
   }
 
@@ -811,10 +811,10 @@ app.put('/api/admin/sessions/:id', authenticateToken, (req, res) => {
     });
   }
 
-  if (!['general', 'member', 'both'].includes(type)) {
+  if (!['member', 'both'].includes(type)) {
     return res.status(400).json({
       success: false,
-      message: 'Type must be general, member, or both'
+      message: 'Type must be member (Friends and Family) or both (General Session)'
     });
   }
 
