@@ -5,10 +5,17 @@ const path = require('path');
 const fs = require('fs');
 const initSqlJs = require('sql.js');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 3000;
 const SESSION_CHILD_LIMIT = 450;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Admin credentials (in production, use a proper user database)
+const ADMIN_USERS = {
+  'admin': 'admin123' // username: password
+};
 
 // Email configuration
 // NOTE: Configure these environment variables or update with your SMTP settings
@@ -82,6 +89,43 @@ async function initializeDatabase() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,
+    child_limit INTEGER NOT NULL DEFAULT 450,
+    is_active INTEGER DEFAULT 1,
+    display_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  // Initialize default sessions if table is empty
+  const sessionCheck = db.exec('SELECT COUNT(*) as count FROM sessions');
+  const sessionCount = sessionCheck[0]?.values[0]?.[0] || 0;
+
+  if (sessionCount === 0) {
+    console.log('Initializing default sessions...');
+
+    // Member-only session
+    db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
+      ['Wednesday December 10, 2025 6:00-8:30p (Friends & Family)', 'member', 450, 1]);
+
+    // General sessions (available to both)
+    const generalSessions = [
+      'Thursday December 11, 2025 6:00-8:30p',
+      'Friday December 12, 2025 6:00-8:30p',
+      'Saturday December 13, 2025 2:00-4:30p',
+      'Saturday December 13, 2025 6:00-8:30p',
+      'Sunday December 14, 2025 2:00-4:30p',
+      'Sunday December 14, 2025 6:00-8:30p'
+    ];
+
+    generalSessions.forEach((session, idx) => {
+      db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
+        [session, 'both', 450, idx + 2]);
+    });
+  }
+
   saveDatabase();
   console.log('Database initialized successfully');
 }
@@ -122,36 +166,74 @@ function getSessionChildCount(session) {
   return totalChildren;
 }
 
+// Get session info from database
+function getSessionInfo(sessionName) {
+  const result = db.exec(`SELECT * FROM sessions WHERE name = ? AND is_active = 1`, [sessionName]);
+  if (result.length > 0 && result[0].values.length > 0) {
+    const columns = result[0].columns;
+    const values = result[0].values[0];
+    const session = {};
+    columns.forEach((col, idx) => {
+      session[col] = values[idx];
+    });
+    return session;
+  }
+  return null;
+}
+
 // Check if a session is still available (under the child limit)
-function isSessionAvailable(session) {
-  const currentCount = getSessionChildCount(session);
-  return currentCount < SESSION_CHILD_LIMIT;
+function isSessionAvailable(sessionName) {
+  const sessionInfo = getSessionInfo(sessionName);
+  if (!sessionInfo) return false;
+
+  const currentCount = getSessionChildCount(sessionName);
+  return currentCount < sessionInfo.child_limit;
+}
+
+// Get session limit
+function getSessionLimit(sessionName) {
+  const sessionInfo = getSessionInfo(sessionName);
+  return sessionInfo ? sessionInfo.child_limit : SESSION_CHILD_LIMIT;
 }
 
 // Get all sessions with their current child counts
 function getAllSessionsWithCounts(sessionList) {
-  return sessionList.map(session => ({
-    session,
-    childCount: getSessionChildCount(session),
-    available: isSessionAvailable(session),
-    spotsRemaining: SESSION_CHILD_LIMIT - getSessionChildCount(session)
-  }));
+  return sessionList.map(sessionName => {
+    const sessionInfo = getSessionInfo(sessionName);
+    const childCount = getSessionChildCount(sessionName);
+    const limit = sessionInfo ? sessionInfo.child_limit : SESSION_CHILD_LIMIT;
+
+    return {
+      session: sessionName,
+      childCount: childCount,
+      available: childCount < limit,
+      spotsRemaining: limit - childCount,
+      limit: limit
+    };
+  });
 }
 
-// Define all available sessions
-const GENERAL_SESSIONS = [
-  'Thursday December 11, 2025 6:00-8:30p',
-  'Friday December 12, 2025 6:00-8:30p',
-  'Saturday December 13, 2025 2:00-4:30p',
-  'Saturday December 13, 2025 6:00-8:30p',
-  'Sunday December 14, 2025 2:00-4:30p',
-  'Sunday December 14, 2025 6:00-8:30p'
-];
+// Get sessions from database
+function getSessionsFromDB(type) {
+  let query = 'SELECT name FROM sessions WHERE is_active = 1';
+  const params = [];
 
-const MEMBER_SESSIONS = [
-  'Wednesday December 10, 2025 6:00-8:30p (Friends & Family)',
-  ...GENERAL_SESSIONS
-];
+  if (type === 'general') {
+    query += ' AND (type = ? OR type = ?)';
+    params.push('general', 'both');
+  } else if (type === 'member') {
+    query += ' AND (type = ? OR type = ?)';
+    params.push('member', 'both');
+  }
+
+  query += ' ORDER BY display_order';
+
+  const result = db.exec(query, params);
+  if (result.length > 0 && result[0].values.length > 0) {
+    return result[0].values.map(row => row[0]);
+  }
+  return [];
+}
 
 // Email sending functions
 async function sendGeneralRegistrationEmail(registrationData) {
@@ -316,9 +398,43 @@ async function sendMemberRegistrationEmail(registrationData) {
   }
 }
 
+// Authentication middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
 // Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/home', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'home.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/sessions', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sessions.html'));
 });
 
 app.get('/general', (req, res) => {
@@ -329,15 +445,106 @@ app.get('/member', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'member.html'));
 });
 
+// Login endpoint
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ success: false, message: 'Username and password required' });
+  }
+
+  // Check credentials
+  if (ADMIN_USERS[username] && ADMIN_USERS[username] === password) {
+    // Generate JWT token
+    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
+    res.json({ success: true, token, message: 'Login successful' });
+  } else {
+    res.status(401).json({ success: false, message: 'Invalid username or password' });
+  }
+});
+
+// API endpoint to get reservations by session (protected)
+app.get('/api/reservations', authenticateToken, (req, res) => {
+  const { session } = req.query;
+
+  if (!session) {
+    return res.status(400).json({ success: false, message: 'Session parameter required' });
+  }
+
+  try {
+    let reservations = [];
+
+    // Get general registrations
+    const generalResult = db.exec(`
+      SELECT * FROM general_registrations
+      WHERE session = ?
+      ORDER BY created_at DESC
+    `, [session]);
+
+    if (generalResult.length > 0 && generalResult[0].values.length > 0) {
+      const columns = generalResult[0].columns;
+      generalResult[0].values.forEach(row => {
+        const reservation = {};
+        columns.forEach((col, idx) => {
+          reservation[col] = row[idx];
+        });
+        reservation.type = 'general';
+        reservations.push(reservation);
+      });
+    }
+
+    // Get member registrations
+    const memberResult = db.exec(`
+      SELECT * FROM member_registrations
+      WHERE session = ?
+      ORDER BY created_at DESC
+    `, [session]);
+
+    if (memberResult.length > 0 && memberResult[0].values.length > 0) {
+      const columns = memberResult[0].columns;
+      memberResult[0].values.forEach(row => {
+        const reservation = {};
+        columns.forEach((col, idx) => {
+          reservation[col] = row[idx];
+        });
+        reservation.type = 'member';
+        reservations.push(reservation);
+      });
+    }
+
+    // Calculate stats
+    const totalRegistrations = reservations.length;
+    const totalAdults = reservations.reduce((sum, r) => sum + (r.num_adults || 0), 0);
+    const totalChildren = reservations.reduce((sum, r) => sum + (r.num_children || 0), 0);
+    const sessionLimit = getSessionLimit(session);
+    const spotsRemaining = sessionLimit - totalChildren;
+
+    res.json({
+      success: true,
+      reservations,
+      stats: {
+        totalRegistrations,
+        totalAdults,
+        totalChildren,
+        spotsRemaining,
+        limit: sessionLimit
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching reservations:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch reservations' });
+  }
+});
+
 // API endpoint to get available general sessions
 app.get('/api/sessions/general', (req, res) => {
   try {
-    const sessionsWithCounts = getAllSessionsWithCounts(GENERAL_SESSIONS);
+    const sessionNames = getSessionsFromDB('general');
+    const sessionsWithCounts = getAllSessionsWithCounts(sessionNames);
     const availableSessions = sessionsWithCounts.filter(s => s.available);
     res.json({
       success: true,
-      sessions: availableSessions,
-      limit: SESSION_CHILD_LIMIT
+      sessions: availableSessions
     });
   } catch (err) {
     console.error('Error fetching general sessions:', err);
@@ -348,15 +555,30 @@ app.get('/api/sessions/general', (req, res) => {
 // API endpoint to get available member sessions
 app.get('/api/sessions/member', (req, res) => {
   try {
-    const sessionsWithCounts = getAllSessionsWithCounts(MEMBER_SESSIONS);
+    const sessionNames = getSessionsFromDB('member');
+    const sessionsWithCounts = getAllSessionsWithCounts(sessionNames);
     const availableSessions = sessionsWithCounts.filter(s => s.available);
     res.json({
       success: true,
-      sessions: availableSessions,
-      limit: SESSION_CHILD_LIMIT
+      sessions: availableSessions
     });
   } catch (err) {
     console.error('Error fetching member sessions:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch sessions' });
+  }
+});
+
+// API endpoint to get all sessions for admin (including full ones)
+app.get('/api/sessions/all', authenticateToken, (req, res) => {
+  try {
+    const sessionNames = getSessionsFromDB('all');
+    const sessionsWithCounts = getAllSessionsWithCounts(sessionNames);
+    res.json({
+      success: true,
+      sessions: sessionsWithCounts
+    });
+  } catch (err) {
+    console.error('Error fetching all sessions:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch sessions' });
   }
 });
@@ -369,20 +591,31 @@ app.post('/api/register/general', async (req, res) => {
   } = req.body;
 
   try {
-    // Validate session exists
-    if (!GENERAL_SESSIONS.includes(session)) {
+    // Validate session exists and is active
+    const sessionInfo = getSessionInfo(session);
+    if (!sessionInfo) {
       return res.status(400).json({
         success: false,
         message: 'Invalid session selected'
       });
     }
 
+    // Check if this session is available for general registration
+    const generalSessions = getSessionsFromDB('general');
+    if (!generalSessions.includes(session)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This session is not available for general registration'
+      });
+    }
+
     // Check if session would exceed child limit
     const currentChildCount = getSessionChildCount(session);
     const newChildCount = parseInt(num_children) || 0;
+    const sessionLimit = sessionInfo.child_limit;
 
-    if (currentChildCount + newChildCount > SESSION_CHILD_LIMIT) {
-      const spotsRemaining = SESSION_CHILD_LIMIT - currentChildCount;
+    if (currentChildCount + newChildCount > sessionLimit) {
+      const spotsRemaining = sessionLimit - currentChildCount;
       return res.status(400).json({
         success: false,
         message: `This session has reached its capacity. Only ${spotsRemaining} child spots remaining, but you are trying to register ${newChildCount} children.`
@@ -433,20 +666,31 @@ app.post('/api/register/member', async (req, res) => {
   } = req.body;
 
   try {
-    // Validate session exists
-    if (!MEMBER_SESSIONS.includes(session)) {
+    // Validate session exists and is active
+    const sessionInfo = getSessionInfo(session);
+    if (!sessionInfo) {
       return res.status(400).json({
         success: false,
         message: 'Invalid session selected'
       });
     }
 
+    // Check if this session is available for member registration
+    const memberSessions = getSessionsFromDB('member');
+    if (!memberSessions.includes(session)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This session is not available for member registration'
+      });
+    }
+
     // Check if session would exceed child limit
     const currentChildCount = getSessionChildCount(session);
     const newChildCount = parseInt(num_children) || 0;
+    const sessionLimit = sessionInfo.child_limit;
 
-    if (currentChildCount + newChildCount > SESSION_CHILD_LIMIT) {
-      const spotsRemaining = SESSION_CHILD_LIMIT - currentChildCount;
+    if (currentChildCount + newChildCount > sessionLimit) {
+      const spotsRemaining = sessionLimit - currentChildCount;
       return res.status(400).json({
         success: false,
         message: `This session has reached its capacity. Only ${spotsRemaining} child spots remaining, but you are trying to register ${newChildCount} children.`
@@ -488,6 +732,145 @@ app.post('/api/register/member', async (req, res) => {
   } catch (err) {
     console.error('Error inserting member registration:', err);
     res.status(500).json({ success: false, message: 'Registration failed' });
+  }
+});
+
+// Session management API endpoints (protected)
+
+// Get all sessions (including inactive)
+app.get('/api/admin/sessions', authenticateToken, (req, res) => {
+  try {
+    const result = db.exec('SELECT * FROM sessions ORDER BY display_order, created_at');
+
+    if (result.length === 0 || result[0].values.length === 0) {
+      return res.json({ success: true, sessions: [] });
+    }
+
+    const columns = result[0].columns;
+    const sessions = result[0].values.map(row => {
+      const session = {};
+      columns.forEach((col, idx) => {
+        session[col] = row[idx];
+      });
+      // Add current child count
+      session.currentChildCount = getSessionChildCount(session.name);
+      session.spotsRemaining = session.child_limit - session.currentChildCount;
+      return session;
+    });
+
+    res.json({ success: true, sessions });
+  } catch (err) {
+    console.error('Error fetching sessions:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch sessions' });
+  }
+});
+
+// Create new session
+app.post('/api/admin/sessions', authenticateToken, (req, res) => {
+  const { name, type, child_limit, display_order } = req.body;
+
+  if (!name || !type || !child_limit) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name, type, and child_limit are required'
+    });
+  }
+
+  if (!['member', 'both'].includes(type)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Type must be member (Friends and Family) or both (General Session)'
+    });
+  }
+
+  try {
+    db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
+      [name, type, parseInt(child_limit), parseInt(display_order) || 0]);
+
+    saveDatabase();
+    res.json({ success: true, message: 'Session created successfully' });
+  } catch (err) {
+    console.error('Error creating session:', err);
+    if (err.message && err.message.includes('UNIQUE constraint')) {
+      res.status(400).json({ success: false, message: 'A session with this name already exists' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to create session' });
+    }
+  }
+});
+
+// Update session
+app.put('/api/admin/sessions/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { name, type, child_limit, is_active, display_order } = req.body;
+
+  if (!name || !type || child_limit === undefined) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name, type, and child_limit are required'
+    });
+  }
+
+  if (!['member', 'both'].includes(type)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Type must be member (Friends and Family) or both (General Session)'
+    });
+  }
+
+  try {
+    db.run(`UPDATE sessions SET name = ?, type = ?, child_limit = ?, is_active = ?, display_order = ? WHERE id = ?`,
+      [name, type, parseInt(child_limit), is_active ? 1 : 0, parseInt(display_order) || 0, parseInt(id)]);
+
+    saveDatabase();
+    res.json({ success: true, message: 'Session updated successfully' });
+  } catch (err) {
+    console.error('Error updating session:', err);
+    if (err.message && err.message.includes('UNIQUE constraint')) {
+      res.status(400).json({ success: false, message: 'A session with this name already exists' });
+    } else {
+      res.status(500).json({ success: false, message: 'Failed to update session' });
+    }
+  }
+});
+
+// Delete session (soft delete - mark as inactive)
+app.delete('/api/admin/sessions/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Check if there are registrations for this session
+    const sessionResult = db.exec('SELECT name FROM sessions WHERE id = ?', [parseInt(id)]);
+
+    if (sessionResult.length === 0 || sessionResult[0].values.length === 0) {
+      return res.status(404).json({ success: false, message: 'Session not found' });
+    }
+
+    const sessionName = sessionResult[0].values[0][0];
+    const registrationCount = getSessionChildCount(sessionName);
+
+    if (registrationCount > 0) {
+      // Has registrations, just deactivate
+      db.run('UPDATE sessions SET is_active = 0 WHERE id = ?', [parseInt(id)]);
+      saveDatabase();
+      return res.json({
+        success: true,
+        message: 'Session deactivated (has existing registrations)',
+        deactivated: true
+      });
+    } else {
+      // No registrations, safe to delete
+      db.run('DELETE FROM sessions WHERE id = ?', [parseInt(id)]);
+      saveDatabase();
+      return res.json({
+        success: true,
+        message: 'Session deleted successfully',
+        deleted: true
+      });
+    }
+  } catch (err) {
+    console.error('Error deleting session:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete session' });
   }
 });
 
