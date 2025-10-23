@@ -136,17 +136,8 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(240, 147, 251, 0.4);
         }
-        
-        .btn-back {
-            background: #6c757d;
-            color: white;
-            margin-bottom: 20px;
-        }
-        
-        .btn-back:hover {
-            background: #5a6268;
-        }
-        
+
+
         .success-message {
             background: #d4edda;
             color: #155724;
@@ -175,8 +166,6 @@
 </head>
 <body>
     <div class="container">
-        <button onclick="window.location.href='/'" class="btn btn-back">← Back to Home</button>
-        
         <h1>Member + Guest Registration</h1>
         <p class="subtitle">Please fill out all required fields</p>
         
@@ -278,14 +267,7 @@
             <div class="form-group">
                 <label for="session">Session *</label>
                 <select id="session" name="session" required>
-                    <option value="">Select a session...</option>
-                    <option value="Wednesday December 10, 2025 6:00-8:30p">Wednesday December 10, 2025 6:00-8:30p (Friends & Family)</option>
-                    <option value="Thursday December 11, 2025 6:00-8:30p">Thursday December 11, 2025 6:00-8:30p</option>
-                    <option value="Friday December 12, 2025 6:00-8:30p">Friday December 12, 2025 6:00-8:30p</option>
-                    <option value="Saturday December 13, 2025 2:00-4:30p">Saturday December 13, 2025 2:00-4:30p</option>
-                    <option value="Saturday December 13, 2025 6:00-8:30p">Saturday December 13, 2025 6:00-8:30p</option>
-                    <option value="Sunday December 14, 2025 2:00-4:30p">Sunday December 14, 2025 2:00-4:30p</option>
-                    <option value="Sunday December 14, 2025 6:00-8:30p">Sunday December 14, 2025 6:00-8:30p</option>
+                    <option value="">Loading sessions...</option>
                 </select>
             </div>
             
@@ -308,7 +290,43 @@
         const childrenSection = document.getElementById('childrenSection');
         const childrenInputs = document.getElementById('childrenInputs');
         const form = document.getElementById('registrationForm');
-        
+        const sessionSelect = document.getElementById('session');
+
+        // Fetch and populate available sessions
+        async function loadAvailableSessions() {
+            try {
+                const response = await fetch('/api/sessions/member');
+                const result = await response.json();
+
+                if (result.success) {
+                    sessionSelect.innerHTML = '<option value="">Select a session...</option>';
+
+                    if (result.sessions.length === 0) {
+                        sessionSelect.innerHTML = '<option value="">All sessions are full</option>';
+                        sessionSelect.disabled = true;
+                        alert('All sessions have reached their capacity. Please check back later.');
+                    } else {
+                        result.sessions.forEach(sessionData => {
+                            const option = document.createElement('option');
+                            option.value = sessionData.session;
+                            option.textContent = sessionData.session;
+                            sessionSelect.appendChild(option);
+                        });
+                    }
+                } else {
+                    sessionSelect.innerHTML = '<option value="">Error loading sessions</option>';
+                    alert('Failed to load available sessions. Please refresh the page.');
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                sessionSelect.innerHTML = '<option value="">Error loading sessions</option>';
+                alert('Failed to load available sessions. Please refresh the page.');
+            }
+        }
+
+        // Load sessions when page loads
+        loadAvailableSessions();
+
         numChildrenSelect.addEventListener('change', function() {
             const numChildren = parseInt(this.value);
             childrenInputs.innerHTML = '';
@@ -370,10 +388,18 @@
                 });
                 
                 const result = await response.json();
-                
+
                 if (result.success) {
-                    document.getElementById('successMessage').textContent = result.message;
-                    document.getElementById('successMessage').style.display = 'block';
+                    const successMsg = document.getElementById('successMessage');
+                    successMsg.innerHTML = `
+                        <strong>Registration Successful!</strong><br><br>
+                        Thank you for registering. A confirmation email has been sent to <strong>${data.email}</strong> with your registration details.<br><br>
+                        <strong>Member:</strong> ${data.member_first_name} ${data.member_last_name}<br>
+                        <strong>Session:</strong> ${data.session}<br>
+                        <strong>Number of Adults:</strong> ${data.num_adults}<br>
+                        <strong>Number of Children:</strong> ${data.num_children}
+                    `;
+                    successMsg.style.display = 'block';
                     document.getElementById('errorMessage').style.display = 'none';
                     form.reset();
                     childrenSection.style.display = 'none';

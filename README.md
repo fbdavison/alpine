@@ -6,6 +6,8 @@ A Node.js web application with two registration forms connected to an SQLite dat
 
 - **General Registration Form**: For public event registration with 6 session options
 - **Member + Guest Registration Form**: For members bringing guests, includes Wednesday friends & family session
+- **Session Capacity Management**: Automatically limits each session to 450 children and removes full sessions from the dropdown
+- **Email Confirmation**: Sends automated confirmation emails to registrants with their full registration details
 - Dynamic child information fields based on number of children selected
 - SQLite database for storing all registrations
 - Clean, responsive UI with gradient themes
@@ -17,12 +19,37 @@ A Node.js web application with two registration forms connected to an SQLite dat
    npm install
    ```
 
-2. **Start the Server**
+2. **Configure Email Settings**
+
+   Create a `.env` file in the root directory (use `.env.example` as a template):
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then edit `.env` with your SMTP email credentials:
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your-email@example.com
+   SMTP_PASS=your-app-password
+   ```
+
+   **For Gmail Users:**
+   - Enable 2-factor authentication on your Google account
+   - Generate an "App Password" at https://myaccount.google.com/apppasswords
+   - Use the generated app password (not your regular Gmail password)
+
+   **For Other Email Providers:**
+   - Office 365: `smtp.office365.com` (Port 587)
+   - Yahoo: `smtp.mail.yahoo.com` (Port 587)
+   - Outlook: `smtp-mail.outlook.com` (Port 587)
+
+3. **Start the Server**
    ```bash
    npm start
    ```
 
-3. **Access the Application**
+4. **Access the Application**
    Open your browser and go to: `http://localhost:3000`
 
 ## Database
