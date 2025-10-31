@@ -6,6 +6,7 @@ const fs = require('fs');
 const initSqlJs = require('sql.js');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const { initScheduler } = require('./reminder-scheduler');
 
 const app = express();
 const PORT = 3000;
@@ -96,7 +97,18 @@ async function initializeDatabase() {
     child_limit INTEGER NOT NULL DEFAULT 450,
     is_active INTEGER DEFAULT 1,
     display_order INTEGER DEFAULT 0,
+    session_date TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS reminder_emails_sent (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_name TEXT NOT NULL,
+    registration_id INTEGER NOT NULL,
+    registration_type TEXT NOT NULL,
+    email TEXT NOT NULL,
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(session_name, registration_id, registration_type)
   )`);
 
   // Initialize default sessions if table is empty
@@ -107,23 +119,38 @@ async function initializeDatabase() {
     console.log('Initializing default sessions...');
 
     // Member-only session
-    db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
-      ['Wednesday December 10, 2025 6:00-8:30p (Friends & Family)', 'member', 450, 1]);
+    db.run(`INSERT INTO sessions (name, type, child_limit, display_order, session_date) VALUES (?, ?, ?, ?, ?)`,
+      ['Wednesday December 10, 2025 6:00-8:30p (Friends & Family)', 'member', 450, 1, '2025-12-10T18:00:00']);
 
     // General sessions (available to both)
     const generalSessions = [
-      'Thursday December 11, 2025 6:00-8:30p',
-      'Friday December 12, 2025 6:00-8:30p',
-      'Saturday December 13, 2025 2:00-4:30p',
-      'Saturday December 13, 2025 6:00-8:30p',
-      'Sunday December 14, 2025 2:00-4:30p',
-      'Sunday December 14, 2025 6:00-8:30p'
+      { name: 'Thursday December 11, 2025 6:00-8:30p', date: '2025-12-11T18:00:00' },
+      { name: 'Friday December 12, 2025 6:00-8:30p', date: '2025-12-12T18:00:00' },
+      { name: 'Saturday December 13, 2025 2:00-4:30p', date: '2025-12-13T14:00:00' },
+      { name: 'Saturday December 13, 2025 6:00-8:30p', date: '2025-12-13T18:00:00' },
+      { name: 'Sunday December 14, 2025 2:00-4:30p', date: '2025-12-14T14:00:00' },
+      { name: 'Sunday December 14, 2025 6:00-8:30p', date: '2025-12-14T18:00:00' }
     ];
 
     generalSessions.forEach((session, idx) => {
-      db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
-        [session, 'both', 450, idx + 2]);
+      db.run(`INSERT INTO sessions (name, type, child_limit, display_order, session_date) VALUES (?, ?, ?, ?, ?)`,
+        [session.name, 'both', 450, idx + 2, session.date]);
     });
+  }
+
+  // Migration: Add session_date column if it doesn't exist
+  try {
+    const tableInfo = db.exec("PRAGMA table_info(sessions)");
+    const columns = tableInfo[0]?.values.map(row => row[1]) || [];
+
+    if (!columns.includes('session_date')) {
+      console.log('Migrating database: Adding session_date column to sessions table...');
+      db.run('ALTER TABLE sessions ADD COLUMN session_date TEXT');
+      saveDatabase();
+      console.log('Migration completed successfully');
+    }
+  } catch (err) {
+    console.error('Migration error:', err);
   }
 
   saveDatabase();
@@ -767,7 +794,7 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
 
 // Create new session
 app.post('/api/admin/sessions', authenticateToken, (req, res) => {
-  const { name, type, child_limit, display_order } = req.body;
+  const { name, type, child_limit, display_order, session_date } = req.body;
 
   if (!name || !type || !child_limit) {
     return res.status(400).json({
@@ -784,8 +811,8 @@ app.post('/api/admin/sessions', authenticateToken, (req, res) => {
   }
 
   try {
-    db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
-      [name, type, parseInt(child_limit), parseInt(display_order) || 0]);
+    db.run(`INSERT INTO sessions (name, type, child_limit, display_order, session_date) VALUES (?, ?, ?, ?, ?)`,
+      [name, type, parseInt(child_limit), parseInt(display_order) || 0, session_date || null]);
 
     saveDatabase();
     res.json({ success: true, message: 'Session created successfully' });
@@ -802,7 +829,7 @@ app.post('/api/admin/sessions', authenticateToken, (req, res) => {
 // Update session
 app.put('/api/admin/sessions/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
-  const { name, type, child_limit, is_active, display_order } = req.body;
+  const { name, type, child_limit, is_active, display_order, session_date } = req.body;
 
   if (!name || !type || child_limit === undefined) {
     return res.status(400).json({
@@ -819,8 +846,8 @@ app.put('/api/admin/sessions/:id', authenticateToken, (req, res) => {
   }
 
   try {
-    db.run(`UPDATE sessions SET name = ?, type = ?, child_limit = ?, is_active = ?, display_order = ? WHERE id = ?`,
-      [name, type, parseInt(child_limit), is_active ? 1 : 0, parseInt(display_order) || 0, parseInt(id)]);
+    db.run(`UPDATE sessions SET name = ?, type = ?, child_limit = ?, is_active = ?, display_order = ?, session_date = ? WHERE id = ?`,
+      [name, type, parseInt(child_limit), is_active ? 1 : 0, parseInt(display_order) || 0, session_date || null, parseInt(id)]);
 
     saveDatabase();
     res.json({ success: true, message: 'Session updated successfully' });
@@ -1081,6 +1108,9 @@ app.delete('/api/reservations/:id', authenticateToken, (req, res) => {
 
 // Start server
 initializeDatabase().then(() => {
+  // Initialize reminder scheduler
+  initScheduler(db, saveDatabase);
+
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
