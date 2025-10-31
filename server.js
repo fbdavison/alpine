@@ -276,7 +276,7 @@ async function sendGeneralRegistrationEmail(registrationData) {
             <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.session}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Adults:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Adults & Older Children (6th grade+):</strong></td>
             <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_adults}</td>
           </tr>
           <tr>
@@ -359,7 +359,7 @@ async function sendMemberRegistrationEmail(registrationData) {
             <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.session}</td>
           </tr>
           <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Adults:</strong></td>
+            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Adults & Older Children (6th grade+):</strong></td>
             <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_adults}</td>
           </tr>
           <tr>

@@ -202,7 +202,7 @@
             
             <div class="row">
                 <div class="form-group">
-                    <label for="numAdults">Number of Adults *</label>
+                    <label for="numAdults">Adults & Older Children (6th grade+) *</label>
                     <select id="numAdults" name="num_adults" required>
                         <option value="">Select...</option>
                         <option value="1">1</option>
@@ -363,7 +363,7 @@
                         <strong>Registration Successful!</strong><br><br>
                         Thank you for registering. A confirmation email has been sent to <strong>${data.email}</strong> with your registration details.<br><br>
                         <strong>Session:</strong> ${data.session}<br>
-                        <strong>Number of Adults:</strong> ${data.num_adults}<br>
+                        <strong>Adults & Older Children (6th grade+):</strong> ${data.num_adults}<br>
                         <strong>Number of Children:</strong> ${data.num_children}
                     `;
                     successMsg.style.display = 'block';
