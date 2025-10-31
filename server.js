@@ -874,6 +874,211 @@ app.delete('/api/admin/sessions/:id', authenticateToken, (req, res) => {
   }
 });
 
+// Reservation management API endpoints (protected)
+
+// Update a reservation
+app.put('/api/reservations/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { type, ...data } = req.body;
+
+  if (!type || (type !== 'general' && type !== 'member')) {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid type (general or member) is required'
+    });
+  }
+
+  try {
+    const tableName = type === 'member' ? 'member_registrations' : 'general_registrations';
+
+    // Validate required fields
+    const {
+      first_name,
+      last_name,
+      email,
+      phone,
+      street_address,
+      city,
+      state,
+      zip,
+      num_adults,
+      num_children,
+      children_details,
+      comments,
+      request_church_info,
+      session,
+      member_first_name,
+      member_last_name
+    } = data;
+
+    if (!first_name || !last_name || !email || !session) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: first_name, last_name, email, session'
+      });
+    }
+
+    // Get current reservation to check session change
+    const currentResult = db.exec(
+      `SELECT session, num_children FROM ${tableName} WHERE id = ?`,
+      [parseInt(id)]
+    );
+
+    if (currentResult.length === 0 || currentResult[0].values.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reservation not found'
+      });
+    }
+
+    const currentSession = currentResult[0].values[0][0];
+    const currentChildCount = currentResult[0].values[0][1] || 0;
+    const newChildCount = parseInt(num_children) || 0;
+
+    // If session is changing or child count is increasing, check capacity
+    if (currentSession !== session || newChildCount > currentChildCount) {
+      const sessionInfo = getSessionInfo(session);
+      if (!sessionInfo) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid session selected'
+        });
+      }
+
+      const sessionChildCount = getSessionChildCount(session);
+      const sessionLimit = sessionInfo.child_limit;
+
+      // Calculate the net change in children for capacity check
+      let netChildChange = newChildCount;
+      if (currentSession === session) {
+        // Same session, just changing count
+        netChildChange = newChildCount - currentChildCount;
+      }
+
+      if (sessionChildCount + netChildChange > sessionLimit) {
+        const spotsRemaining = sessionLimit - sessionChildCount;
+        return res.status(400).json({
+          success: false,
+          message: `This session has insufficient capacity. Only ${spotsRemaining} child spots remaining.`
+        });
+      }
+    }
+
+    // Build update query based on registration type
+    if (type === 'member') {
+      if (!member_first_name || !member_last_name) {
+        return res.status(400).json({
+          success: false,
+          message: 'Member first name and last name are required for member registrations'
+        });
+      }
+
+      db.run(`UPDATE member_registrations SET
+        member_first_name = ?,
+        member_last_name = ?,
+        first_name = ?,
+        last_name = ?,
+        email = ?,
+        phone = ?,
+        street_address = ?,
+        city = ?,
+        state = ?,
+        zip = ?,
+        num_adults = ?,
+        num_children = ?,
+        children_details = ?,
+        comments = ?,
+        request_church_info = ?,
+        session = ?
+        WHERE id = ?`,
+        [member_first_name, member_last_name, first_name, last_name, email, phone,
+         street_address, city, state, zip, num_adults, num_children,
+         children_details || '', comments || '', request_church_info ? 1 : 0,
+         session, parseInt(id)]
+      );
+    } else {
+      db.run(`UPDATE general_registrations SET
+        first_name = ?,
+        last_name = ?,
+        email = ?,
+        phone = ?,
+        street_address = ?,
+        city = ?,
+        state = ?,
+        zip = ?,
+        num_adults = ?,
+        num_children = ?,
+        children_details = ?,
+        comments = ?,
+        request_church_info = ?,
+        session = ?
+        WHERE id = ?`,
+        [first_name, last_name, email, phone, street_address, city, state, zip,
+         num_adults, num_children, children_details || '', comments || '',
+         request_church_info ? 1 : 0, session, parseInt(id)]
+      );
+    }
+
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: 'Reservation updated successfully'
+    });
+  } catch (err) {
+    console.error('Error updating reservation:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update reservation'
+    });
+  }
+});
+
+// Delete a reservation
+app.delete('/api/reservations/:id', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { type } = req.query;
+
+  if (!type || (type !== 'general' && type !== 'member')) {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid type (general or member) query parameter is required'
+    });
+  }
+
+  try {
+    const tableName = type === 'member' ? 'member_registrations' : 'general_registrations';
+
+    // Check if reservation exists
+    const checkResult = db.exec(
+      `SELECT id FROM ${tableName} WHERE id = ?`,
+      [parseInt(id)]
+    );
+
+    if (checkResult.length === 0 || checkResult[0].values.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reservation not found'
+      });
+    }
+
+    // Delete the reservation
+    db.run(`DELETE FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: 'Reservation deleted successfully'
+    });
+  } catch (err) {
+    console.error('Error deleting reservation:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete reservation'
+    });
+  }
+});
+
 // Start server
 initializeDatabase().then(() => {
   app.listen(PORT, () => {
