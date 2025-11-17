@@ -7,7 +7,9 @@ A Node.js web application with two registration forms connected to an SQLite dat
 - **General Registration Form**: For public event registration with 6 session options
 - **Member + Guest Registration Form**: For members bringing guests, includes Wednesday friends & family session
 - **Session Capacity Management**: Automatically limits each session to 450 children and removes full sessions from the dropdown
-- **Email Confirmation**: Sends automated confirmation emails to registrants with their full registration details
+- **Email Confirmation**: Sends automated confirmation emails to registrants with their full registration details and Alpine Village logo
+- **Reminder Emails**: Automated reminder emails sent 48 hours before each session
+- **Alpine Village Branding**: Beautiful logo displayed on all pages and included in emails
 - Dynamic child information fields based on number of children selected
 - SQLite database for storing all registrations
 - Clean, responsive UI with gradient themes
@@ -51,6 +53,26 @@ A Node.js web application with two registration forms connected to an SQLite dat
 
 4. **Access the Application**
    Open your browser and go to: `http://localhost:3000`
+
+5. **Set Up Reminder Emails (Optional)**
+
+   To automatically send reminder emails 48 hours before each session, set up a daily cron job:
+
+   ```bash
+   # Edit crontab
+   crontab -e
+
+   # Add this line to run daily at 9 AM
+   0 9 * * * cd /path/to/alpine && node send-reminders.js >> /var/log/alpine-reminders.log 2>&1
+   ```
+
+   The script will automatically:
+   - Parse session dates and times
+   - Find all registrations for sessions happening in 46-50 hours
+   - Send personalized reminder emails with the Alpine Village logo
+   - Log all activity for monitoring
+
+   **Note**: Make sure your `.env` file is properly configured with SMTP settings before running the reminder script.
 
 ## Database
 

@@ -240,69 +240,58 @@ async function sendGeneralRegistrationEmail(registrationData) {
   const childrenList = registrationData.children_details
     ? JSON.parse(registrationData.children_details).map((child, index) =>
         `${index + 1}. ${child.name} (Age: ${child.age})`
-      ).join('\n        ')
+      ).join('<br>')
     : 'None';
 
   const mailOptions = {
     from: process.env.SMTP_USER || 'your-email@example.com',
     to: registrationData.email,
-    subject: 'Registration Confirmation - Event Registration',
+    subject: 'Alpine Village 2025 Registration Confirmation',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #667eea;">Registration Confirmation</h2>
-        <p>Dear ${registrationData.first_name} ${registrationData.last_name},</p>
-        <p>Thank you for registering for our event. Your registration has been confirmed.</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="cid:logo" alt="Alpine Village Logo" style="max-width: 200px; height: auto;">
+        </div>
 
-        <h3 style="color: #764ba2;">Registration Details:</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Name:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.first_name} ${registrationData.last_name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.email}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.phone}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Address:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.street_address}, ${registrationData.city}, ${registrationData.state} ${registrationData.zip}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Session:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.session}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Adults & Older Children (6th grade+):</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_adults}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Children:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_children}</td>
-          </tr>
-          ${registrationData.num_children > 0 ? `
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Children:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><pre style="margin: 0; font-family: Arial, sans-serif;">${childrenList}</pre></td>
-          </tr>
-          ` : ''}
-          ${registrationData.comments ? `
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Comments:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.comments}</td>
-          </tr>
-          ` : ''}
-        </table>
+        <p>Hi ${registrationData.first_name},</p>
 
-        <p style="margin-top: 20px;">We look forward to seeing you at the event!</p>
-        <p>If you have any questions, please don't hesitate to contact us.</p>
+        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church.</p>
 
-        <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated confirmation email. Please do not reply to this message.</p>
+        <p><strong>Session:</strong> ${registrationData.session}</p>
+        <p><strong>Adult/older children (6th grade +) tickets:</strong> ${registrationData.num_adults}</p>
+        <p><strong>Children (up to 5th grade) tickets:</strong> ${registrationData.num_children}</p>
+
+        <p>Please email <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>, if these ticket reservations need to be changed or cancelled. Space is limited for all sessions. When we know about changes and cancellations we can offer unused tickets to others.</p>
+
+        <p>At all sessions we are collecting non-perishable food donations for Brinkley Heights Ministries. These donations are not required to attend, but the opportunity is available for all that want to participate. Specific items requested include: canned meat, canned fruit, canned vegetables, canned beans, mac & cheese, cereal, saltines, and peanut butter. Please do not donate expired items.</p>
+
+        <h3 style="color: #c54545;">Here are a few reminders as you prepare to come to Alpine Village this year:</h3>
+        <ul>
+          <li>Paper tickets are not required. You will check-in at the registration table when you arrive.</li>
+          <li>Doors will open promptly at the start time of the session and all activities will be available until the Village closes at the designed end time. However, the North Pole line will close 15 minutes before the session ends.</li>
+          <li>For your safety, our security team will be checking all bags when you enter. Please be assured that our team is well trained and will handle this with the upmost professionalism.</li>
+          <li>No strollers are allowed in the Village, except for children with special needs.</li>
+          <li>No animals are allowed in the Village. Registered service animals are permitted, with prior notification. Documentation must be presented at the church and verified by the Alpine Village director, prior to attending Alpine Village.</li>
+          <li>We recommend, if possible, leaving heavy coats in your car. We do not have the space to store winter gear for our guests. If there is more than one adult in your party, you are welcome to drop off party members under the awning at the door.</li>
+        </ul>
+
+        <p>If you have any questions, please contact us at <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>.</p>
+
+        <p><strong>Christmas Blessings to all!</strong><br>
+        The Alpine Village Team</p>
+
+        <div style="margin-top: 30px; padding: 15px; background-color: #f5f5f5; border-left: 4px solid #c54545;">
+          <p style="margin: 0; font-style: italic; color: #666;">
+            "And the angel said unto them, Fear not: for, behold, I bring you good tidings of great joy, which shall be to all people. For unto you is born this day in the city of David a Saviour, which is Christ the Lord. And this shall be a sign unto you; Ye shall find the babe wrapped in swaddling clothes, lying in a manger." - Luke 2:10-12
+          </p>
+        </div>
       </div>
-    `
+    `,
+    attachments: [{
+      filename: 'AV Logo.png',
+      path: __dirname + '/public/images/AV Logo.png',
+      cid: 'logo'
+    }]
   };
 
   try {
@@ -319,73 +308,58 @@ async function sendMemberRegistrationEmail(registrationData) {
   const childrenList = registrationData.children_details
     ? JSON.parse(registrationData.children_details).map((child, index) =>
         `${index + 1}. ${child.name} (Age: ${child.age})`
-      ).join('\n        ')
+      ).join('<br>')
     : 'None';
 
   const mailOptions = {
     from: process.env.SMTP_USER || 'your-email@example.com',
     to: registrationData.email,
-    subject: 'Registration Confirmation - Member + Guest Registration',
+    subject: 'Alpine Village 2025 Registration Confirmation',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #f093fb;">Member + Guest Registration Confirmation</h2>
-        <p>Dear ${registrationData.first_name} ${registrationData.last_name},</p>
-        <p>Thank you for registering for our event. Your registration has been confirmed.</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="cid:logo" alt="Alpine Village Logo" style="max-width: 200px; height: auto;">
+        </div>
 
-        <h3 style="color: #f5576c;">Registration Details:</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Member Name:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.member_first_name} ${registrationData.member_last_name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Guest Name:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.first_name} ${registrationData.last_name}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Email:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.email}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Phone:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.phone}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Address:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.street_address}, ${registrationData.city}, ${registrationData.state} ${registrationData.zip}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Session:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.session}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Adults & Older Children (6th grade+):</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_adults}</td>
-          </tr>
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Number of Children:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.num_children}</td>
-          </tr>
-          ${registrationData.num_children > 0 ? `
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Children:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;"><pre style="margin: 0; font-family: Arial, sans-serif;">${childrenList}</pre></td>
-          </tr>
-          ` : ''}
-          ${registrationData.comments ? `
-          <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;" valign="top"><strong>Comments:</strong></td>
-            <td style="padding: 8px; border-bottom: 1px solid #eee;">${registrationData.comments}</td>
-          </tr>
-          ` : ''}
-        </table>
+        <p>Hi ${registrationData.first_name},</p>
 
-        <p style="margin-top: 20px;">We look forward to seeing you at the event!</p>
-        <p>If you have any questions, please don't hesitate to contact us.</p>
+        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church.</p>
 
-        <p style="color: #666; font-size: 12px; margin-top: 30px;">This is an automated confirmation email. Please do not reply to this message.</p>
+        <p><strong>Session:</strong> ${registrationData.session}</p>
+        <p><strong>Adult/older children (6th grade +) tickets:</strong> ${registrationData.num_adults}</p>
+        <p><strong>Children (up to 5th grade) tickets:</strong> ${registrationData.num_children}</p>
+
+        <p>Please email <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>, if these ticket reservations need to be changed or cancelled. Space is limited for all sessions. When we know about changes and cancellations we can offer unused tickets to others.</p>
+
+        <p>At all sessions we are collecting non-perishable food donations for Brinkley Heights Ministries. These donations are not required to attend, but the opportunity is available for all that want to participate. Specific items requested include: canned meat, canned fruit, canned vegetables, canned beans, mac & cheese, cereal, saltines, and peanut butter. Please do not donate expired items.</p>
+
+        <h3 style="color: #c54545;">Here are a few reminders as you prepare to come to Alpine Village this year:</h3>
+        <ul>
+          <li>Paper tickets are not required. You will check-in at the registration table when you arrive.</li>
+          <li>Doors will open promptly at the start time of the session and all activities will be available until the Village closes at the designed end time. However, the North Pole line will close 15 minutes before the session ends.</li>
+          <li>For your safety, our security team will be checking all bags when you enter. Please be assured that our team is well trained and will handle this with the upmost professionalism.</li>
+          <li>No strollers are allowed in the Village, except for children with special needs.</li>
+          <li>No animals are allowed in the Village. Registered service animals are permitted, with prior notification. Documentation must be presented at the church and verified by the Alpine Village director, prior to attending Alpine Village.</li>
+          <li>We recommend, if possible, leaving heavy coats in your car. We do not have the space to store winter gear for our guests. If there is more than one adult in your party, you are welcome to drop off party members under the awning at the door.</li>
+        </ul>
+
+        <p>If you have any questions, please contact us at <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>.</p>
+
+        <p><strong>Christmas Blessings to all!</strong><br>
+        The Alpine Village Team</p>
+
+        <div style="margin-top: 30px; padding: 15px; background-color: #f5f5f5; border-left: 4px solid #c54545;">
+          <p style="margin: 0; font-style: italic; color: #666;">
+            "And the angel said unto them, Fear not: for, behold, I bring you good tidings of great joy, which shall be to all people. For unto you is born this day in the city of David a Saviour, which is Christ the Lord. And this shall be a sign unto you; Ye shall find the babe wrapped in swaddling clothes, lying in a manger." - Luke 2:10-12
+          </p>
+        </div>
       </div>
-    `
+    `,
+    attachments: [{
+      filename: 'AV Logo.png',
+      path: __dirname + '/public/images/AV Logo.png',
+      cid: 'logo'
+    }]
   };
 
   try {
@@ -394,6 +368,67 @@ async function sendMemberRegistrationEmail(registrationData) {
     return true;
   } catch (error) {
     console.error('Error sending email:', error);
+    return false;
+  }
+}
+
+// Reminder email function
+async function sendReminderEmail(registrationData) {
+  const mailOptions = {
+    from: process.env.SMTP_USER || 'your-email@example.com',
+    to: registrationData.email,
+    subject: 'Alpine Village 2025 - Reminder for Your Upcoming Session',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="cid:logo" alt="Alpine Village Logo" style="max-width: 200px; height: auto;">
+        </div>
+
+        <p>Hi ${registrationData.first_name},</p>
+
+        <p>Trinity is looking forward to having your family attend the 27th year of Alpine Village.</p>
+
+        <p>You have tickets reserved for the session on <strong>${registrationData.session}</strong>. You have <strong>${registrationData.num_adults}</strong> adult/older children (6th grade +) tickets and <strong>${registrationData.num_children}</strong> children tickets reserved.</p>
+
+        <p>Please email <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>, if these ticket reservations need to be changed or cancelled. Space is limited for all sessions. When we know about changes and cancellations we can offer unused tickets to others.</p>
+
+        <p>At all sessions we are collecting non-perishable food donations for Brinkley Heights Ministries. These donations are not required to attend, but the opportunity is available for all that want to participate. Specific items requested include: canned meat, canned fruit, canned vegetables, canned beans, mac & cheese, cereal, saltines, and peanut butter. Please do not donate expired items.</p>
+
+        <h3 style="color: #c54545;">Here are a few reminders as you prepare to come to Alpine Village this year:</h3>
+        <ul>
+          <li>Paper tickets are not required. You will check-in at the registration table when you arrive.</li>
+          <li>Doors will open promptly at the start time of the session and all activities will be available until the Village closes at the designed end time. However, the North Pole line will close 15 minutes before the session ends.</li>
+          <li>For your safety, our security team will be checking all bags when you enter. Please be assured that our team is well trained and will handle this with the upmost professionalism.</li>
+          <li>No strollers are allowed in the Village, except for children with special needs.</li>
+          <li>No animals are allowed in the Village. Registered service animals are permitted, with prior notification. Documentation must be presented at the church and verified by the Alpine Village director, prior to attending Alpine Village.</li>
+          <li>We recommend, if possible, leaving heavy coats in your car. We do not have the space to store winter gear for our guests. If there is more than one adult in your party, you are welcome to drop off party members under the awning at the door.</li>
+        </ul>
+
+        <p>If you have any questions, please contact us at <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>.</p>
+
+        <p><strong>Christmas Blessings to all!</strong><br>
+        The Alpine Village Team</p>
+
+        <div style="margin-top: 30px; padding: 15px; background-color: #f5f5f5; border-left: 4px solid #c54545;">
+          <p style="margin: 0; font-style: italic; color: #666;">
+            "And the angel said unto them, Fear not: for, behold, I bring you good tidings of great joy, which shall be to all people. For unto you is born this day in the city of David a Saviour, which is Christ the Lord. And this shall be a sign unto you; Ye shall find the babe wrapped in swaddling clothes, lying in a manger." - Luke 2:10-12
+          </p>
+        </div>
+      </div>
+    `,
+    attachments: [{
+      filename: 'AV Logo.png',
+      path: __dirname + '/public/images/AV Logo.png',
+      cid: 'logo'
+    }]
+  };
+
+  try {
+    await emailTransporter.sendMail(mailOptions);
+    console.log('Reminder email sent successfully to:', registrationData.email);
+    return true;
+  } catch (error) {
+    console.error('Error sending reminder email:', error);
     return false;
   }
 }
