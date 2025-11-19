@@ -269,10 +269,194 @@
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
+
+        .action-buttons-container {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-edit, .btn-delete {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .btn-edit {
+            background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
+            color: #333;
+        }
+
+        .btn-edit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(132, 250, 176, 0.4);
+        }
+
+        .btn-delete {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #333;
+        }
+
+        .btn-delete:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(250, 112, 154, 0.4);
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 50px auto;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .modal-header h2 {
+            color: #333;
+            margin: 0;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group-modal {
+            margin-bottom: 15px;
+        }
+
+        .form-group-modal label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .form-group-modal input,
+        .form-group-modal select,
+        .form-group-modal textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .form-group-modal input:focus,
+        .form-group-modal select:focus,
+        .form-group-modal textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        .btn-save {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-cancel {
+            padding: 12px 30px;
+            background: #e0e0e0;
+            color: #333;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-cancel:hover {
+            background: #d0d0d0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.75em;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo img {
+            max-width: 150px;
+            height: auto;
+        }
+
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="logo">
+            <img src="/images/AV%20Logo.png" alt="Alpine Village Logo">
+        </div>
         <div class="header">
             <h1>Reservation Management</h1>
             <div class="header-buttons">
@@ -526,7 +710,15 @@
             html += '<div class="detail-value">' + new Date(reservation.created_at).toLocaleString() + '</div>';
             html += '</div>';
 
-            html += '</div></div>';
+            html += '</div>';
+
+            // Add action buttons
+            html += '<div class="action-buttons-container">';
+            html += '<button class="btn-edit" onclick="editRegistration(' + reservation.id + ', \'' + type + '\')">Edit</button>';
+            html += '<button class="btn-delete" onclick="deleteRegistration(' + reservation.id + ', \'' + type + '\', \'' + escapeHtml(reservation.first_name) + ' ' + escapeHtml(reservation.last_name) + '\')">Delete</button>';
+            html += '</div>';
+
+            html += '</div>';
 
             return html;
         }
@@ -597,8 +789,277 @@
             return div.innerHTML;
         }
 
+        // Edit registration
+        let currentEditId = null;
+        let currentEditType = null;
+        let allSessions = [];
+
+        async function editRegistration(id, type) {
+            currentEditId = id;
+            currentEditType = type;
+
+            // Find the registration in allReservations
+            const registration = allReservations.find(r => r.id === id);
+            if (!registration) {
+                alert('Registration not found');
+                return;
+            }
+
+            // Load all sessions for the dropdown
+            try {
+                const response = await fetch('/api/sessions/all', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    allSessions = data.sessions;
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+            }
+
+            // Populate the modal with registration data
+            document.getElementById('editModalTitle').textContent = 'Edit ' + (type === 'general' ? 'General' : 'Member') + ' Registration';
+
+            if (type === 'member') {
+                document.getElementById('memberFields').style.display = 'block';
+                document.getElementById('editMemberFirstName').value = registration.member_first_name || '';
+                document.getElementById('editMemberLastName').value = registration.member_last_name || '';
+            } else {
+                document.getElementById('memberFields').style.display = 'none';
+            }
+
+            document.getElementById('editFirstName').value = registration.first_name;
+            document.getElementById('editLastName').value = registration.last_name;
+            document.getElementById('editEmail').value = registration.email;
+            document.getElementById('editPhone').value = registration.phone;
+            document.getElementById('editStreetAddress').value = registration.street_address;
+            document.getElementById('editCity').value = registration.city;
+            document.getElementById('editState').value = registration.state;
+            document.getElementById('editZip').value = registration.zip;
+            document.getElementById('editNumAdults').value = registration.num_adults;
+            document.getElementById('editNumChildren').value = registration.num_children;
+            document.getElementById('editComments').value = registration.comments || '';
+            document.getElementById('editRequestChurchInfo').checked = registration.request_church_info;
+
+            // Populate session dropdown
+            const sessionSelect = document.getElementById('editSession');
+            sessionSelect.innerHTML = '';
+            allSessions.forEach(session => {
+                const option = document.createElement('option');
+                option.value = session.name;
+                option.textContent = session.name + (session.is_active ? '' : ' (Inactive)');
+                if (session.name === registration.session) {
+                    option.selected = true;
+                }
+                sessionSelect.appendChild(option);
+            });
+
+            // Show the modal
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        async function saveRegistration() {
+            const data = {
+                first_name: document.getElementById('editFirstName').value,
+                last_name: document.getElementById('editLastName').value,
+                email: document.getElementById('editEmail').value,
+                phone: document.getElementById('editPhone').value,
+                street_address: document.getElementById('editStreetAddress').value,
+                city: document.getElementById('editCity').value,
+                state: document.getElementById('editState').value,
+                zip: document.getElementById('editZip').value,
+                num_adults: document.getElementById('editNumAdults').value,
+                num_children: document.getElementById('editNumChildren').value,
+                comments: document.getElementById('editComments').value,
+                request_church_info: document.getElementById('editRequestChurchInfo').checked,
+                session: document.getElementById('editSession').value
+            };
+
+            if (currentEditType === 'member') {
+                data.member_first_name = document.getElementById('editMemberFirstName').value;
+                data.member_last_name = document.getElementById('editMemberLastName').value;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/registrations/${currentEditType}/${currentEditId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeEditModal();
+                    alert('Registration updated successfully!');
+                    loadReservations(currentSession);
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error updating registration:', error);
+                alert('Failed to update registration');
+            }
+        }
+
+        async function deleteRegistration(id, type, name) {
+            if (!confirm(`Are you sure you want to delete the registration for ${name}? This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/registrations/${type}/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Registration deleted successfully!');
+                    loadReservations(currentSession);
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error deleting registration:', error);
+                alert('Failed to delete registration');
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentEditId = null;
+            currentEditType = null;
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                closeEditModal();
+            }
+        }
+
         // Initialize
         loadSessions();
     </script>
+
+    <!-- Edit Registration Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="editModalTitle">Edit Registration</h2>
+                <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+
+            <form id="editForm" onsubmit="event.preventDefault(); saveRegistration();">
+                <div id="memberFields" style="display: none;">
+                    <h3 style="color: #f5576c; margin-bottom: 15px;">Member Information</h3>
+                    <div class="form-row">
+                        <div class="form-group-modal">
+                            <label for="editMemberFirstName">Member First Name</label>
+                            <input type="text" id="editMemberFirstName">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="editMemberLastName">Member Last Name</label>
+                            <input type="text" id="editMemberLastName">
+                        </div>
+                    </div>
+                    <h3 style="color: #f5576c; margin: 20px 0 15px;">Guest Information</h3>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group-modal">
+                        <label for="editFirstName">First Name *</label>
+                        <input type="text" id="editFirstName" required>
+                    </div>
+                    <div class="form-group-modal">
+                        <label for="editLastName">Last Name *</label>
+                        <input type="text" id="editLastName" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group-modal">
+                        <label for="editEmail">Email *</label>
+                        <input type="email" id="editEmail" required>
+                    </div>
+                    <div class="form-group-modal">
+                        <label for="editPhone">Phone *</label>
+                        <input type="tel" id="editPhone" required>
+                    </div>
+                </div>
+
+                <div class="form-group-modal">
+                    <label for="editStreetAddress">Street Address *</label>
+                    <input type="text" id="editStreetAddress" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group-modal">
+                        <label for="editCity">City *</label>
+                        <input type="text" id="editCity" required>
+                    </div>
+                    <div class="form-group-modal">
+                        <label for="editState">State *</label>
+                        <input type="text" id="editState" required>
+                    </div>
+                </div>
+
+                <div class="form-group-modal">
+                    <label for="editZip">Zip Code *</label>
+                    <input type="text" id="editZip" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group-modal">
+                        <label for="editNumAdults">Adults & Older Children (6th grade+) *</label>
+                        <input type="number" id="editNumAdults" min="1" max="10" required>
+                    </div>
+                    <div class="form-group-modal">
+                        <label for="editNumChildren">Number of Children *</label>
+                        <input type="number" id="editNumChildren" min="0" max="10" required>
+                    </div>
+                </div>
+
+                <div class="form-group-modal">
+                    <label for="editSession">Session *</label>
+                    <select id="editSession" required>
+                        <option value="">Select a session...</option>
+                    </select>
+                </div>
+
+                <div class="form-group-modal">
+                    <label for="editComments">Comments</label>
+                    <textarea id="editComments" rows="3"></textarea>
+                </div>
+
+                <div class="form-group-modal">
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="editRequestChurchInfo" style="width: auto;">
+                        Request Church Information
+                    </label>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn-save">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2024 Trinity Baptist Church
+    </footer>
 </body>
 </html>

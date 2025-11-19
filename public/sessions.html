@@ -292,10 +292,31 @@
         .capacity-high {
             background: #fa709a;
         }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo img {
+            max-width: 150px;
+            height: auto;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.75em;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="logo">
+            <img src="/images/AV%20Logo.png" alt="Alpine Village Logo">
+        </div>
         <div class="header">
             <h1>Session Management</h1>
             <div class="header-buttons">
@@ -583,5 +604,8 @@
         // Initialize
         loadSessions();
     </script>
+    <footer>
+        &copy; 2024 Trinity Baptist Church
+    </footer>
 </body>
 </html>

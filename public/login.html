@@ -118,10 +118,32 @@
         .links a:hover {
             text-decoration: underline;
         }
+        footer {
+            position: fixed;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.75em;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo img {
+            max-width: 200px;
+            height: auto;
+        }
+
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="logo">
+            <img src="/images/AV%20Logo.png" alt="Alpine Village Logo">
+        </div>
         <h1>Login</h1>
         <p>Event Registration System</p>
 
@@ -190,5 +212,8 @@
             }
         });
     </script>
+    <footer>
+        &copy; 2024 Trinity Baptist Church
+    </footer>
 </body>
 </html>
