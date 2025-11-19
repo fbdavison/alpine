@@ -10,22 +10,45 @@
 
 const sqlite3 = require('sqlite3').verbose();
 const nodemailer = require('nodemailer');
-require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
+
+// Load .env file if it exists (for local development)
+// In production, use server environment variables instead
+const dotenv = require('dotenv');
+if (fs.existsSync('.env')) {
+  dotenv.config();
+  console.log('✓ Loaded environment variables from .env file');
+} else {
+  console.log('✓ Using server environment variables (no .env file found)');
+}
 
 // Database setup
 const db = new sqlite3.Database('./registrations.db');
 
 // Email transporter setup
-const emailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+// Configure via environment variables (either .env file or server environment variables)
+// Required variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+const emailConfig = {
+  host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT) || 587,
   secure: false,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
   }
-});
+};
+
+// Validate email configuration
+if (!emailConfig.host || !emailConfig.auth.user || !emailConfig.auth.pass) {
+  console.error('❌ Error: Email configuration incomplete. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.');
+  console.error('   Cannot send reminder emails without proper configuration.');
+  process.exit(1);
+}
+
+console.log('✓ Email configuration loaded:', emailConfig.host, 'as', emailConfig.auth.user);
+
+const emailTransporter = nodemailer.createTransport(emailConfig);
 
 // Send reminder email function
 async function sendReminderEmail(registrationData) {

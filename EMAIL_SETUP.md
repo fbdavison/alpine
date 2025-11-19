@@ -5,7 +5,9 @@ This guide provides detailed instructions for configuring email notifications fo
 ## Table of Contents
 
 - [Overview](#overview)
-- [Quick Start](#quick-start)
+- [Configuration Methods](#configuration-methods)
+- [Quick Start (Local Development)](#quick-start-local-development)
+- [Production Deployment (Server Environment Variables)](#production-deployment-server-environment-variables)
 - [Provider-Specific Setup](#provider-specific-setup)
   - [Gmail](#gmail)
   - [Office 365](#office-365)
@@ -27,7 +29,28 @@ The Alpine Village Registration System uses **Nodemailer** to send three types o
 
 All emails include the Alpine Village logo and are formatted with HTML for a professional appearance.
 
-## Quick Start
+## Configuration Methods
+
+The application supports two methods for configuring email settings:
+
+### Method 1: .env File (Local Development)
+- **Best for:** Local development and testing
+- **How it works:** Create a `.env` file in the project root with your SMTP credentials
+- **Advantages:** Easy to set up, keeps credentials out of code, works offline
+
+### Method 2: Server Environment Variables (Production)
+- **Best for:** Production deployments (Heroku, Render, AWS, DigitalOcean, etc.)
+- **How it works:** Set environment variables directly on your server or hosting platform
+- **Advantages:** More secure, follows 12-factor app principles, easier to manage across environments
+
+**The application automatically detects which method you're using:**
+- If a `.env` file exists, it will be loaded (useful for local development)
+- If no `.env` file exists, the app will use server environment variables (production)
+- Server environment variables take precedence if both are present
+
+## Quick Start (Local Development)
+
+For local development using a `.env` file:
 
 1. **Copy the environment template:**
    ```bash
@@ -46,6 +69,182 @@ All emails include the Alpine Village logo and are formatted with HTML for a pro
    ```bash
    npm start
    ```
+
+## Production Deployment (Server Environment Variables)
+
+For production deployments, configure environment variables directly on your server instead of using a `.env` file.
+
+### Required Environment Variables
+
+Set these four environment variables on your server:
+
+```bash
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@example.com
+SMTP_PASS=your-app-password
+```
+
+### Platform-Specific Instructions
+
+#### Heroku
+
+```bash
+heroku config:set SMTP_HOST=smtp.gmail.com
+heroku config:set SMTP_PORT=587
+heroku config:set SMTP_USER=your-email@example.com
+heroku config:set SMTP_PASS=your-app-password
+```
+
+Or via the Heroku Dashboard:
+1. Go to your app's **Settings** tab
+2. Click **Reveal Config Vars**
+3. Add each variable: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+
+#### Render
+
+1. Go to your web service dashboard
+2. Navigate to **Environment** tab
+3. Add environment variables:
+   - Key: `SMTP_HOST`, Value: `smtp.gmail.com`
+   - Key: `SMTP_PORT`, Value: `587`
+   - Key: `SMTP_USER`, Value: `your-email@example.com`
+   - Key: `SMTP_PASS`, Value: `your-app-password`
+4. Click **Save Changes**
+
+#### AWS Elastic Beanstalk
+
+```bash
+eb setenv SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_USER=your-email@example.com SMTP_PASS=your-app-password
+```
+
+Or via AWS Console:
+1. Go to your Elastic Beanstalk environment
+2. Navigate to **Configuration** → **Software**
+3. Scroll to **Environment properties**
+4. Add each variable
+
+#### DigitalOcean App Platform
+
+1. Go to your app in the DigitalOcean control panel
+2. Navigate to **Settings** → **App-Level Environment Variables**
+3. Click **Edit**, then **Add Variable**
+4. Add: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+5. Click **Save**
+
+#### Railway
+
+1. Go to your project dashboard
+2. Click on **Variables** tab
+3. Click **New Variable**
+4. Add each variable: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+
+#### Linux Server (systemd service)
+
+Create/edit your systemd service file (e.g., `/etc/systemd/system/alpine.service`):
+
+```ini
+[Unit]
+Description=Alpine Village Registration System
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/alpine
+Environment="SMTP_HOST=smtp.gmail.com"
+Environment="SMTP_PORT=587"
+Environment="SMTP_USER=your-email@example.com"
+Environment="SMTP_PASS=your-app-password"
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then reload and restart:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart alpine
+```
+
+#### Docker
+
+Pass environment variables when running the container:
+
+```bash
+docker run -d \
+  -e SMTP_HOST=smtp.gmail.com \
+  -e SMTP_PORT=587 \
+  -e SMTP_USER=your-email@example.com \
+  -e SMTP_PASS=your-app-password \
+  -p 3000:3000 \
+  alpine-village
+```
+
+Or in `docker-compose.yml`:
+
+```yaml
+version: '3'
+services:
+  alpine:
+    image: alpine-village
+    ports:
+      - "3000:3000"
+    environment:
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=your-email@example.com
+      - SMTP_PASS=your-app-password
+```
+
+#### Manual Export (Linux/macOS)
+
+For manual server setup, export variables in your shell profile (`.bashrc`, `.bash_profile`, or `.zshrc`):
+
+```bash
+export SMTP_HOST=smtp.gmail.com
+export SMTP_PORT=587
+export SMTP_USER=your-email@example.com
+export SMTP_PASS=your-app-password
+```
+
+Then reload your profile:
+```bash
+source ~/.bashrc  # or ~/.bash_profile or ~/.zshrc
+```
+
+**For cron jobs**, you must set environment variables in the crontab itself:
+```bash
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@example.com
+SMTP_PASS=your-app-password
+
+0 9 * * * cd /path/to/alpine && node send-reminders.js >> /var/log/alpine-reminders.log 2>&1
+```
+
+### Verifying Environment Variables
+
+After setting environment variables, verify they're loaded correctly:
+
+**On your server:**
+```bash
+echo $SMTP_HOST
+echo $SMTP_USER
+```
+
+**In your application:**
+
+When you start the server, you should see:
+```
+✓ Using server environment variables (no .env file found)
+✓ Email configuration loaded: smtp.gmail.com as your-email@example.com
+```
+
+If you see warnings about missing configuration, double-check your environment variables.
 
 ## Provider-Specific Setup
 
