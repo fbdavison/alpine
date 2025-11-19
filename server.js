@@ -909,6 +909,93 @@ app.delete('/api/admin/sessions/:id', authenticateToken, (req, res) => {
   }
 });
 
+// Update registration (admin only)
+app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
+  const { type, id } = req.params;
+  const {
+    first_name, last_name, email, phone, street_address, city, state, zip,
+    num_adults, num_children, children_details, comments, request_church_info,
+    session, member_first_name, member_last_name
+  } = req.body;
+
+  // Validate type
+  if (!['general', 'member'].includes(type)) {
+    return res.status(400).json({ success: false, message: 'Invalid registration type' });
+  }
+
+  try {
+    const tableName = type === 'general' ? 'general_registrations' : 'member_registrations';
+
+    // Check if registration exists
+    const checkResult = db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
+    if (checkResult.length === 0 || checkResult[0].values.length === 0) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    // Build update query based on type
+    if (type === 'general') {
+      db.run(`UPDATE general_registrations SET
+        first_name = ?, last_name = ?, email = ?, phone = ?,
+        street_address = ?, city = ?, state = ?, zip = ?,
+        num_adults = ?, num_children = ?, children_details = ?,
+        comments = ?, request_church_info = ?, session = ?
+        WHERE id = ?`,
+        [first_name, last_name, email, phone, street_address, city, state, zip,
+         num_adults, num_children, children_details || '', comments || '',
+         request_church_info ? 1 : 0, session, parseInt(id)]
+      );
+    } else {
+      db.run(`UPDATE member_registrations SET
+        member_first_name = ?, member_last_name = ?,
+        first_name = ?, last_name = ?, email = ?, phone = ?,
+        street_address = ?, city = ?, state = ?, zip = ?,
+        num_adults = ?, num_children = ?, children_details = ?,
+        comments = ?, request_church_info = ?, session = ?
+        WHERE id = ?`,
+        [member_first_name, member_last_name, first_name, last_name, email, phone,
+         street_address, city, state, zip, num_adults, num_children,
+         children_details || '', comments || '', request_church_info ? 1 : 0,
+         session, parseInt(id)]
+      );
+    }
+
+    saveDatabase();
+    res.json({ success: true, message: 'Registration updated successfully' });
+  } catch (err) {
+    console.error('Error updating registration:', err);
+    res.status(500).json({ success: false, message: 'Failed to update registration' });
+  }
+});
+
+// Delete registration (admin only)
+app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
+  const { type, id } = req.params;
+
+  // Validate type
+  if (!['general', 'member'].includes(type)) {
+    return res.status(400).json({ success: false, message: 'Invalid registration type' });
+  }
+
+  try {
+    const tableName = type === 'general' ? 'general_registrations' : 'member_registrations';
+
+    // Check if registration exists
+    const checkResult = db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
+    if (checkResult.length === 0 || checkResult[0].values.length === 0) {
+      return res.status(404).json({ success: false, message: 'Registration not found' });
+    }
+
+    // Delete the registration
+    db.run(`DELETE FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
+    saveDatabase();
+
+    res.json({ success: true, message: 'Registration deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting registration:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete registration' });
+  }
+});
+
 // Start server
 initializeDatabase().then(() => {
   app.listen(PORT, () => {
