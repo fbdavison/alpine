@@ -23,6 +23,10 @@ A Node.js web application with two registration forms connected to an SQLite dat
 
 2. **Configure Email Settings**
 
+   The application supports two methods for configuring email:
+
+   **Option A: Using .env file (recommended for local development)**
+
    Create a `.env` file in the root directory (use `.env.example` as a template):
    ```bash
    cp .env.example .env
@@ -36,6 +40,20 @@ A Node.js web application with two registration forms connected to an SQLite dat
    SMTP_PASS=your-app-password
    ```
 
+   **Option B: Using server environment variables (recommended for production)**
+
+   Set the following environment variables on your server or hosting platform:
+   ```bash
+   export SMTP_HOST=smtp.gmail.com
+   export SMTP_PORT=587
+   export SMTP_USER=your-email@example.com
+   export SMTP_PASS=your-app-password
+   ```
+
+   Or on your hosting platform (Heroku, Render, AWS, etc.):
+   - Navigate to your app's environment variable settings
+   - Add: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`
+
    **For Gmail Users:**
    - Enable 2-factor authentication on your Google account
    - Generate an "App Password" at https://myaccount.google.com/apppasswords
@@ -45,6 +63,8 @@ A Node.js web application with two registration forms connected to an SQLite dat
    - Office 365: `smtp.office365.com` (Port 587)
    - Yahoo: `smtp.mail.yahoo.com` (Port 587)
    - Outlook: `smtp-mail.outlook.com` (Port 587)
+
+   See [EMAIL_SETUP.md](EMAIL_SETUP.md) for detailed configuration instructions.
 
 3. **Start the Server**
    ```bash

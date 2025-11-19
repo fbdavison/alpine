@@ -1,14 +1,23 @@
-require('dotenv').config();
+// Load .env file if it exists (for local development)
+// In production, use server environment variables instead
+const dotenv = require('dotenv');
+const fs = require('fs');
+if (fs.existsSync('.env')) {
+  dotenv.config();
+  console.log('✓ Loaded environment variables from .env file');
+} else {
+  console.log('✓ Using server environment variables (no .env file found)');
+}
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
-const fs = require('fs');
 const initSqlJs = require('sql.js');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const SESSION_CHILD_LIMIT = 450;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -18,16 +27,27 @@ const ADMIN_USERS = {
 };
 
 // Email configuration
-// NOTE: Configure these environment variables or update with your SMTP settings
-const emailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 587,
+// Configure via environment variables (either .env file or server environment variables)
+// Required variables: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+const emailConfig = {
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT) || 587,
   secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER || 'your-email@example.com',
-    pass: process.env.SMTP_PASS || 'your-password'
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
   }
-});
+};
+
+// Validate email configuration
+if (!emailConfig.host || !emailConfig.auth.user || !emailConfig.auth.pass) {
+  console.warn('⚠️  Warning: Email configuration incomplete. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.');
+  console.warn('   Email notifications will not work until these are configured.');
+} else {
+  console.log('✓ Email configuration loaded:', emailConfig.host, 'as', emailConfig.auth.user);
+}
+
+const emailTransporter = nodemailer.createTransport(emailConfig);
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
