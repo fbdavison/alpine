@@ -475,6 +475,7 @@
                 </select>
             </div>
             <button class="export-btn" onclick="exportToCSV()">Export to CSV</button>
+            <button class="export-btn" onclick="addNewRegistration()">Add New Registration</button>
         </div>
 
         <div class="stats" id="stats" style="display: none;">
@@ -793,21 +794,78 @@
         let currentEditId = null;
         let currentEditType = null;
         let allSessions = [];
+        let isCreatingNew = false;
 
-        async function editRegistration(id, type) {
-            currentEditId = id;
-            currentEditType = type;
+        async function addNewRegistration() {
+            isCreatingNew = true;
+            currentEditId = null;
+            currentEditType = 'general'; // Default to general
 
-            // Find the registration in allReservations
-            const registration = allReservations.find(r => r.id === id);
-            if (!registration) {
-                alert('Registration not found');
-                return;
+            // Load all sessions for the dropdown (including inactive)
+            await loadAllSessions();
+
+            // Clear the form and set up for new registration
+            document.getElementById('editModalTitle').textContent = 'Add New Registration';
+            document.getElementById('memberFields').style.display = 'none';
+            document.getElementById('saveButton').textContent = 'Create Registration';
+
+            // Add registration type selector
+            let typeSelector = document.getElementById('registrationTypeSelector');
+            if (!typeSelector) {
+                const formElement = document.getElementById('editForm');
+                const typeGroup = document.createElement('div');
+                typeGroup.className = 'form-group-modal';
+                typeGroup.id = 'registrationTypeSelector';
+                typeGroup.innerHTML = `
+                    <label for="registrationType">Registration Type *</label>
+                    <select id="registrationType" required onchange="toggleMemberFields()">
+                        <option value="general">General</option>
+                        <option value="member">Member + Guest</option>
+                    </select>
+                `;
+                formElement.insertBefore(typeGroup, formElement.firstChild);
+            } else {
+                typeSelector.style.display = 'block';
+                document.getElementById('registrationType').value = 'general';
             }
 
-            // Load all sessions for the dropdown
+            // Clear all form fields
+            document.getElementById('editFirstName').value = '';
+            document.getElementById('editLastName').value = '';
+            document.getElementById('editEmail').value = '';
+            document.getElementById('editPhone').value = '';
+            document.getElementById('editStreetAddress').value = '';
+            document.getElementById('editCity').value = '';
+            document.getElementById('editState').value = '';
+            document.getElementById('editZip').value = '';
+            document.getElementById('editNumAdults').value = '1';
+            document.getElementById('editNumChildren').value = '0';
+            document.getElementById('editComments').value = '';
+            document.getElementById('editRequestChurchInfo').checked = false;
+            document.getElementById('editMemberFirstName').value = '';
+            document.getElementById('editMemberLastName').value = '';
+
+            // Populate session dropdown
+            const sessionSelect = document.getElementById('editSession');
+            sessionSelect.innerHTML = '<option value="">Select a session...</option>';
+            allSessions.forEach(session => {
+                const option = document.createElement('option');
+                option.value = session.name;
+                option.textContent = session.name + (session.is_active ? '' : ' (Inactive)');
+                // Pre-select the currently viewed session if available
+                if (currentSession && session.name === currentSession) {
+                    option.selected = true;
+                }
+                sessionSelect.appendChild(option);
+            });
+
+            // Show the modal
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        async function loadAllSessions() {
             try {
-                const response = await fetch('/api/sessions/all', {
+                const response = await fetch('/api/sessions/all-with-inactive', {
                     headers: {
                         'Authorization': `Bearer ${authToken}`
                     }
@@ -819,9 +877,42 @@
             } catch (error) {
                 console.error('Error loading sessions:', error);
             }
+        }
+
+        function toggleMemberFields() {
+            const registrationType = document.getElementById('registrationType').value;
+            currentEditType = registrationType;
+            if (registrationType === 'member') {
+                document.getElementById('memberFields').style.display = 'block';
+            } else {
+                document.getElementById('memberFields').style.display = 'none';
+            }
+        }
+
+        async function editRegistration(id, type) {
+            isCreatingNew = false;
+            currentEditId = id;
+            currentEditType = type;
+
+            // Find the registration in allReservations
+            const registration = allReservations.find(r => r.id === id);
+            if (!registration) {
+                alert('Registration not found');
+                return;
+            }
+
+            // Load all sessions for the dropdown (including inactive)
+            await loadAllSessions();
+
+            // Hide registration type selector when editing
+            const typeSelector = document.getElementById('registrationTypeSelector');
+            if (typeSelector) {
+                typeSelector.style.display = 'none';
+            }
 
             // Populate the modal with registration data
             document.getElementById('editModalTitle').textContent = 'Edit ' + (type === 'general' ? 'General' : 'Member') + ' Registration';
+            document.getElementById('saveButton').textContent = 'Save Changes';
 
             if (type === 'member') {
                 document.getElementById('memberFields').style.display = 'block';
@@ -871,8 +962,8 @@
                 city: document.getElementById('editCity').value,
                 state: document.getElementById('editState').value,
                 zip: document.getElementById('editZip').value,
-                num_adults: document.getElementById('editNumAdults').value,
-                num_children: document.getElementById('editNumChildren').value,
+                num_adults: parseInt(document.getElementById('editNumAdults').value),
+                num_children: parseInt(document.getElementById('editNumChildren').value),
                 comments: document.getElementById('editComments').value,
                 request_church_info: document.getElementById('editRequestChurchInfo').checked,
                 session: document.getElementById('editSession').value
@@ -884,27 +975,48 @@
             }
 
             try {
-                const response = await fetch(`/api/admin/registrations/${currentEditType}/${currentEditId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify(data)
-                });
+                let response;
+                if (isCreatingNew) {
+                    // Create new registration
+                    response = await fetch(`/api/register/${currentEditType}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    // Update existing registration
+                    response = await fetch(`/api/admin/registrations/${currentEditType}/${currentEditId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify(data)
+                    });
+                }
 
                 const result = await response.json();
 
                 if (result.success) {
                     closeEditModal();
-                    alert('Registration updated successfully!');
-                    loadReservations(currentSession);
+                    alert(isCreatingNew ? 'Registration created successfully!' : 'Registration updated successfully!');
+                    // If a session was selected, reload it; otherwise stay on current view
+                    if (currentSession) {
+                        loadReservations(currentSession);
+                    } else if (data.session) {
+                        // Switch to the newly selected session
+                        document.getElementById('sessionSelect').value = data.session;
+                        currentSession = data.session;
+                        loadReservations(data.session);
+                    }
                 } else {
                     alert('Error: ' + result.message);
                 }
             } catch (error) {
-                console.error('Error updating registration:', error);
-                alert('Failed to update registration');
+                console.error('Error saving registration:', error);
+                alert('Failed to save registration');
             }
         }
 
@@ -939,6 +1051,7 @@
             document.getElementById('editModal').style.display = 'none';
             currentEditId = null;
             currentEditType = null;
+            isCreatingNew = false;
         }
 
         // Close modal when clicking outside
@@ -1052,7 +1165,7 @@
 
                 <div class="modal-actions">
                     <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
-                    <button type="submit" class="btn-save">Save Changes</button>
+                    <button type="submit" class="btn-save" id="saveButton">Save Changes</button>
                 </div>
             </form>
         </div>

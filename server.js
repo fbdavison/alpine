@@ -618,6 +618,46 @@ app.get('/api/sessions/all', authenticateToken, (req, res) => {
   }
 });
 
+// API endpoint to get all sessions including inactive ones for admin
+app.get('/api/sessions/all-with-inactive', authenticateToken, (req, res) => {
+  try {
+    const query = 'SELECT name, is_active, type, child_limit FROM sessions ORDER BY display_order';
+    const result = db.exec(query);
+
+    if (result.length > 0 && result[0].values.length > 0) {
+      const sessions = result[0].values.map(row => {
+        const sessionName = row[0];
+        const isActive = row[1];
+        const childCount = getSessionChildCount(sessionName);
+        const limit = row[3] || SESSION_CHILD_LIMIT;
+
+        return {
+          name: sessionName,
+          is_active: isActive === 1,
+          type: row[2],
+          childCount: childCount,
+          available: childCount < limit,
+          spotsRemaining: limit - childCount,
+          limit: limit
+        };
+      });
+
+      res.json({
+        success: true,
+        sessions: sessions
+      });
+    } else {
+      res.json({
+        success: true,
+        sessions: []
+      });
+    }
+  } catch (err) {
+    console.error('Error fetching all sessions with inactive:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch sessions' });
+  }
+});
+
 // Handle general registration form submission
 app.post('/api/register/general', async (req, res) => {
   const {
