@@ -168,9 +168,9 @@ function getSessionChildCount(session) {
     WHERE session = ?
   `, [session]);
 
-  if (generalResult.length > 0 && generalResult[0].values.length > 0) {
-    totalChildren += generalResult[0].values[0][0] || 0;
-  }
+  const generalCount = (generalResult.length > 0 && generalResult[0].values.length > 0)
+    ? (generalResult[0].values[0][0] || 0)
+    : 0;
 
   // Count children from member registrations
   const memberResult = db.exec(`
@@ -179,9 +179,13 @@ function getSessionChildCount(session) {
     WHERE session = ?
   `, [session]);
 
-  if (memberResult.length > 0 && memberResult[0].values.length > 0) {
-    totalChildren += memberResult[0].values[0][0] || 0;
-  }
+  const memberCount = (memberResult.length > 0 && memberResult[0].values.length > 0)
+    ? (memberResult[0].values[0][0] || 0)
+    : 0;
+
+  totalChildren = generalCount + memberCount;
+
+  console.log(`🔍 getSessionChildCount("${session}"): general=${generalCount}, member=${memberCount}, total=${totalChildren}`);
 
   return totalChildren;
 }
@@ -837,7 +841,13 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
   try {
     const result = db.exec('SELECT * FROM sessions ORDER BY display_order, created_at');
 
+    console.log('📊 Sessions query result:', {
+      hasResults: result.length > 0,
+      rowCount: result[0]?.values?.length || 0
+    });
+
     if (result.length === 0 || result[0].values.length === 0) {
+      console.log('⚠️ No sessions found in database');
       return res.json({ success: true, sessions: [] });
     }
 
@@ -850,8 +860,13 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
       // Add current child count
       session.currentChildCount = getSessionChildCount(session.name);
       session.spotsRemaining = session.child_limit - session.currentChildCount;
+
+      console.log(`📋 Session "${session.name}": ${session.currentChildCount} children, ${session.spotsRemaining} spots remaining`);
+
       return session;
     });
+
+    console.log(`✅ Returning ${sessions.length} sessions to client`);
 
     // Prevent browser caching of session data
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -859,7 +874,7 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
     res.setHeader('Expires', '0');
     res.json({ success: true, sessions });
   } catch (err) {
-    console.error('Error fetching sessions:', err);
+    console.error('❌ Error fetching sessions:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch sessions' });
   }
 });
@@ -1031,6 +1046,93 @@ app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
   }
 });
 
+// Bulk delete all registrations (admin only)
+app.delete('/api/admin/registrations/bulk/all', authenticateToken, (req, res) => {
+  try {
+    // Get counts before deletion
+    const generalCount = db.exec('SELECT COUNT(*) as count FROM general_registrations');
+    const memberCount = db.exec('SELECT COUNT(*) as count FROM member_registrations');
+
+    const generalDeleted = generalCount[0]?.values[0]?.[0] || 0;
+    const memberDeleted = memberCount[0]?.values[0]?.[0] || 0;
+    const totalDeleted = generalDeleted + memberDeleted;
+
+    // Delete all registrations from both tables
+    db.run('DELETE FROM general_registrations');
+    db.run('DELETE FROM member_registrations');
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${totalDeleted} registrations (${generalDeleted} general, ${memberDeleted} member)`,
+      deleted: totalDeleted
+    });
+  } catch (err) {
+    console.error('Error bulk deleting all registrations:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete registrations' });
+  }
+});
+
+// Bulk delete registrations by type (admin only)
+app.delete('/api/admin/registrations/bulk/:type', authenticateToken, (req, res) => {
+  const { type } = req.params;
+
+  // Validate type
+  if (!['general', 'member'].includes(type)) {
+    return res.status(400).json({ success: false, message: 'Invalid registration type. Use "general" or "member"' });
+  }
+
+  try {
+    const tableName = type === 'general' ? 'general_registrations' : 'member_registrations';
+
+    // Get count before deletion
+    const countResult = db.exec(`SELECT COUNT(*) as count FROM ${tableName}`);
+    const deletedCount = countResult[0]?.values[0]?.[0] || 0;
+
+    // Delete all registrations of this type
+    db.run(`DELETE FROM ${tableName}`);
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${deletedCount} ${type} registrations`,
+      deleted: deletedCount
+    });
+  } catch (err) {
+    console.error(`Error bulk deleting ${type} registrations:`, err);
+    res.status(500).json({ success: false, message: 'Failed to delete registrations' });
+  }
+});
+
+// Bulk delete registrations by session (admin only)
+app.delete('/api/admin/registrations/bulk/session/:sessionName', authenticateToken, (req, res) => {
+  const { sessionName } = req.params;
+
+  try {
+    // Get counts before deletion
+    const generalResult = db.exec('SELECT COUNT(*) as count FROM general_registrations WHERE session = ?', [sessionName]);
+    const memberResult = db.exec('SELECT COUNT(*) as count FROM member_registrations WHERE session = ?', [sessionName]);
+
+    const generalDeleted = generalResult[0]?.values[0]?.[0] || 0;
+    const memberDeleted = memberResult[0]?.values[0]?.[0] || 0;
+    const totalDeleted = generalDeleted + memberDeleted;
+
+    // Delete registrations for this session
+    db.run('DELETE FROM general_registrations WHERE session = ?', [sessionName]);
+    db.run('DELETE FROM member_registrations WHERE session = ?', [sessionName]);
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${totalDeleted} registrations for session "${sessionName}" (${generalDeleted} general, ${memberDeleted} member)`,
+      deleted: totalDeleted
+    });
+  } catch (err) {
+    console.error('Error bulk deleting registrations by session:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete registrations' });
+  }
+});
+
 // Delete registration (admin only)
 app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
   const { type, id } = req.params;
@@ -1057,6 +1159,47 @@ app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) =
   } catch (err) {
     console.error('Error deleting registration:', err);
     res.status(500).json({ success: false, message: 'Failed to delete registration' });
+  }
+});
+
+// Debug endpoint to check session name mismatches
+app.get('/api/admin/debug/session-names', authenticateToken, (req, res) => {
+  try {
+    // Get all session names from sessions table
+    const sessionsResult = db.exec('SELECT name FROM sessions ORDER BY name');
+    const sessionNames = sessionsResult[0]?.values.map(row => row[0]) || [];
+
+    // Get unique session names from general registrations
+    const generalResult = db.exec('SELECT DISTINCT session FROM general_registrations ORDER BY session');
+    const generalSessions = generalResult[0]?.values.map(row => row[0]) || [];
+
+    // Get unique session names from member registrations
+    const memberResult = db.exec('SELECT DISTINCT session FROM member_registrations ORDER BY session');
+    const memberSessions = memberResult[0]?.values.map(row => row[0]) || [];
+
+    // Get counts for each
+    const generalCountResult = db.exec('SELECT COUNT(*) as count FROM general_registrations');
+    const memberCountResult = db.exec('SELECT COUNT(*) as count FROM member_registrations');
+
+    const generalTotal = generalCountResult[0]?.values[0]?.[0] || 0;
+    const memberTotal = memberCountResult[0]?.values[0]?.[0] || 0;
+
+    res.json({
+      success: true,
+      debug: {
+        sessionNames: sessionNames,
+        generalRegistrationSessions: generalSessions,
+        memberRegistrationSessions: memberSessions,
+        totalGeneralRegistrations: generalTotal,
+        totalMemberRegistrations: memberTotal,
+        sessionCount: sessionNames.length,
+        generalSessionCount: generalSessions.length,
+        memberSessionCount: memberSessions.length
+      }
+    });
+  } catch (err) {
+    console.error('Error in debug endpoint:', err);
+    res.status(500).json({ success: false, message: 'Debug query failed' });
   }
 });
 
