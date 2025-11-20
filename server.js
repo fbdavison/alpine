@@ -837,7 +837,13 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
   try {
     const result = db.exec('SELECT * FROM sessions ORDER BY display_order, created_at');
 
+    console.log('📊 Sessions query result:', {
+      hasResults: result.length > 0,
+      rowCount: result[0]?.values?.length || 0
+    });
+
     if (result.length === 0 || result[0].values.length === 0) {
+      console.log('⚠️ No sessions found in database');
       return res.json({ success: true, sessions: [] });
     }
 
@@ -850,8 +856,13 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
       // Add current child count
       session.currentChildCount = getSessionChildCount(session.name);
       session.spotsRemaining = session.child_limit - session.currentChildCount;
+
+      console.log(`📋 Session "${session.name}": ${session.currentChildCount} children, ${session.spotsRemaining} spots remaining`);
+
       return session;
     });
+
+    console.log(`✅ Returning ${sessions.length} sessions to client`);
 
     // Prevent browser caching of session data
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -859,7 +870,7 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
     res.setHeader('Expires', '0');
     res.json({ success: true, sessions });
   } catch (err) {
-    console.error('Error fetching sessions:', err);
+    console.error('❌ Error fetching sessions:', err);
     res.status(500).json({ success: false, message: 'Failed to fetch sessions' });
   }
 });

@@ -405,6 +405,12 @@
 
                 const data = await response.json();
 
+                console.log('📊 Received session data from API:', data);
+                console.log(`📊 Number of sessions received: ${data.sessions?.length || 0}`);
+                if (data.sessions && data.sessions.length > 0) {
+                    console.log('📊 First session:', data.sessions[0]);
+                }
+
                 if (!response.ok) {
                     if (response.status === 401) {
                         localStorage.removeItem('auth_token');
@@ -416,6 +422,7 @@
 
                 if (data.success) {
                     sessions = data.sessions;
+                    console.log(`✅ Displaying ${sessions.length} sessions`);
                     displaySessions(sessions);
                 } else {
                     showError(data.message || 'Failed to load sessions');
