@@ -474,6 +474,7 @@
                 html += '<td>' + session.display_order + '</td>';
                 html += '<td><div class="action-buttons">';
                 html += '<button class="btn btn-primary btn-small" onclick="editSession(' + session.id + ')">Edit</button>';
+                html += '<button class="btn btn-danger btn-small" onclick="clearSessionRegistrations(\'' + escapeHtml(session.name) + '\')">Clear Registrations</button>';
                 html += '<button class="btn btn-danger btn-small" onclick="deleteSession(' + session.id + ', \'' + escapeHtml(session.name) + '\')">Delete</button>';
                 html += '</div></td>';
                 html += '</tr>';
@@ -551,6 +552,33 @@
                 showError(error.message);
             }
         });
+
+        // Clear all registrations for a session
+        async function clearSessionRegistrations(sessionName) {
+            if (!confirm(`Are you sure you want to delete ALL registrations for session "${sessionName}"?\n\nThis will clear all member and general registrations for this session.\n\nThis action cannot be undone!`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/registrations/bulk/session/${encodeURIComponent(sessionName)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(result.message);
+                    loadSessions(); // Reload to update counts
+                } else {
+                    showError(result.message);
+                }
+            } catch (error) {
+                showError(error.message);
+            }
+        }
 
         // Delete session
         async function deleteSession(id, name) {

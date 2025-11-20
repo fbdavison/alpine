@@ -1031,6 +1031,93 @@ app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
   }
 });
 
+// Bulk delete all registrations (admin only)
+app.delete('/api/admin/registrations/bulk/all', authenticateToken, (req, res) => {
+  try {
+    // Get counts before deletion
+    const generalCount = db.exec('SELECT COUNT(*) as count FROM general_registrations');
+    const memberCount = db.exec('SELECT COUNT(*) as count FROM member_registrations');
+
+    const generalDeleted = generalCount[0]?.values[0]?.[0] || 0;
+    const memberDeleted = memberCount[0]?.values[0]?.[0] || 0;
+    const totalDeleted = generalDeleted + memberDeleted;
+
+    // Delete all registrations from both tables
+    db.run('DELETE FROM general_registrations');
+    db.run('DELETE FROM member_registrations');
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${totalDeleted} registrations (${generalDeleted} general, ${memberDeleted} member)`,
+      deleted: totalDeleted
+    });
+  } catch (err) {
+    console.error('Error bulk deleting all registrations:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete registrations' });
+  }
+});
+
+// Bulk delete registrations by type (admin only)
+app.delete('/api/admin/registrations/bulk/:type', authenticateToken, (req, res) => {
+  const { type } = req.params;
+
+  // Validate type
+  if (!['general', 'member'].includes(type)) {
+    return res.status(400).json({ success: false, message: 'Invalid registration type. Use "general" or "member"' });
+  }
+
+  try {
+    const tableName = type === 'general' ? 'general_registrations' : 'member_registrations';
+
+    // Get count before deletion
+    const countResult = db.exec(`SELECT COUNT(*) as count FROM ${tableName}`);
+    const deletedCount = countResult[0]?.values[0]?.[0] || 0;
+
+    // Delete all registrations of this type
+    db.run(`DELETE FROM ${tableName}`);
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${deletedCount} ${type} registrations`,
+      deleted: deletedCount
+    });
+  } catch (err) {
+    console.error(`Error bulk deleting ${type} registrations:`, err);
+    res.status(500).json({ success: false, message: 'Failed to delete registrations' });
+  }
+});
+
+// Bulk delete registrations by session (admin only)
+app.delete('/api/admin/registrations/bulk/session/:sessionName', authenticateToken, (req, res) => {
+  const { sessionName } = req.params;
+
+  try {
+    // Get counts before deletion
+    const generalResult = db.exec('SELECT COUNT(*) as count FROM general_registrations WHERE session = ?', [sessionName]);
+    const memberResult = db.exec('SELECT COUNT(*) as count FROM member_registrations WHERE session = ?', [sessionName]);
+
+    const generalDeleted = generalResult[0]?.values[0]?.[0] || 0;
+    const memberDeleted = memberResult[0]?.values[0]?.[0] || 0;
+    const totalDeleted = generalDeleted + memberDeleted;
+
+    // Delete registrations for this session
+    db.run('DELETE FROM general_registrations WHERE session = ?', [sessionName]);
+    db.run('DELETE FROM member_registrations WHERE session = ?', [sessionName]);
+    saveDatabase();
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${totalDeleted} registrations for session "${sessionName}" (${generalDeleted} general, ${memberDeleted} member)`,
+      deleted: totalDeleted
+    });
+  } catch (err) {
+    console.error('Error bulk deleting registrations by session:', err);
+    res.status(500).json({ success: false, message: 'Failed to delete registrations' });
+  }
+});
+
 // Delete registration (admin only)
 app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
   const { type, id } = req.params;

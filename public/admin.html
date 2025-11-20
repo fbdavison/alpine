@@ -270,6 +270,22 @@
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
+        .btn-danger {
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #333;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(250, 112, 154, 0.4);
+        }
+
         .action-buttons-container {
             margin-top: 20px;
             padding-top: 15px;
@@ -476,6 +492,8 @@
             </div>
             <button class="export-btn" onclick="exportToCSV()">Export to CSV</button>
             <button class="export-btn" onclick="addNewRegistration()">Add New Registration</button>
+            <button class="btn-danger" onclick="bulkDeleteCurrentSession()">Delete Current Session</button>
+            <button class="btn-danger" onclick="bulkDeleteAllRegistrations()">Delete All Registrations</button>
         </div>
 
         <div class="stats" id="stats" style="display: none;">
@@ -770,6 +788,74 @@
         }
 
         // Logout
+        async function bulkDeleteCurrentSession() {
+            if (!currentSession) {
+                alert('Please select a session first');
+                return;
+            }
+
+            const confirmMessage = `Are you sure you want to delete ALL registrations for "${currentSession}"?\n\nThis action cannot be undone!`;
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/registrations/bulk/session/${encodeURIComponent(currentSession)}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    loadReservations(); // Reload to show empty list
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error deleting registrations:', error);
+                alert('Failed to delete registrations: ' + error.message);
+            }
+        }
+
+        async function bulkDeleteAllRegistrations() {
+            const confirmMessage = `⚠️ WARNING ⚠️\n\nAre you sure you want to delete ALL registrations from ALL sessions?\n\nThis will delete:\n- All general registrations\n- All member registrations\n\nThis action CANNOT be undone!\n\nType "DELETE ALL" in the next prompt to confirm.`;
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            const confirmText = prompt('Type "DELETE ALL" to confirm this action:');
+            if (confirmText !== 'DELETE ALL') {
+                alert('Deletion cancelled - confirmation text did not match');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/admin/registrations/bulk/all', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    loadReservations(); // Reload to show empty list
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error deleting all registrations:', error);
+                alert('Failed to delete registrations: ' + error.message);
+            }
+        }
+
         function logout() {
             localStorage.removeItem('auth_token');
             window.location.href = '/login';
