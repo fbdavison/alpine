@@ -853,6 +853,10 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
       return session;
     });
 
+    // Prevent browser caching of session data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.json({ success: true, sessions });
   } catch (err) {
     console.error('Error fetching sessions:', err);
