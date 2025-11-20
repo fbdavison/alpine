@@ -187,6 +187,7 @@
             <img src="/images/AV%20Logo.png" alt="Alpine Village Logo">
         </div>
         <h1>Member + Guest Registration</h1>
+        <p class="subtitle">Friends and Family Session, December 10, 6-8:30pm</p>
         <p class="subtitle">Please fill out all required fields</p>
         
         <div id="successMessage" class="success-message"></div>
@@ -205,10 +206,14 @@
                         <input type="text" id="memberLastName" name="member_last_name" required>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
             </div>
             
             <h2>Guest Information</h2>
-            
+
             <div class="row">
                 <div class="form-group">
                     <label for="firstName">First Name *</label>
@@ -219,39 +224,7 @@
                     <input type="text" id="lastName" name="last_name" required>
                 </div>
             </div>
-            
-            <div class="row">
-                <div class="form-group">
-                    <label for="email">Email Address *</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="phone">Phone Number *</label>
-                    <input type="tel" id="phone" name="phone" required>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="streetAddress">Street Address *</label>
-                <input type="text" id="streetAddress" name="street_address" required>
-            </div>
-            
-            <div class="row">
-                <div class="form-group">
-                    <label for="city">City *</label>
-                    <input type="text" id="city" name="city" required>
-                </div>
-                <div class="form-group">
-                    <label for="state">State *</label>
-                    <input type="text" id="state" name="state" required>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="zip">Zip Code *</label>
-                <input type="text" id="zip" name="zip" required>
-            </div>
-            
+
             <div class="row">
                 <div class="form-group">
                     <label for="numAdults">Adults & Older Children (6th grade+) *</label>
@@ -285,20 +258,8 @@
             </div>
             
             <div class="form-group">
-                <label for="session">Session *</label>
-                <select id="session" name="session" required>
-                    <option value="">Loading sessions...</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
                 <label for="comments">Comments</label>
                 <textarea id="comments" name="comments"></textarea>
-            </div>
-            
-            <div class="form-group checkbox-group">
-                <input type="checkbox" id="requestChurchInfo" name="request_church_info">
-                <label for="requestChurchInfo">Request Church Information</label>
             </div>
             
             <button type="submit" class="btn btn-submit">Submit Registration</button>
@@ -310,42 +271,6 @@
         const childrenSection = document.getElementById('childrenSection');
         const childrenInputs = document.getElementById('childrenInputs');
         const form = document.getElementById('registrationForm');
-        const sessionSelect = document.getElementById('session');
-
-        // Fetch and populate available sessions
-        async function loadAvailableSessions() {
-            try {
-                const response = await fetch('/api/sessions/member');
-                const result = await response.json();
-
-                if (result.success) {
-                    sessionSelect.innerHTML = '<option value="">Select a session...</option>';
-
-                    if (result.sessions.length === 0) {
-                        sessionSelect.innerHTML = '<option value="">All sessions are full</option>';
-                        sessionSelect.disabled = true;
-                        alert('All sessions have reached their capacity. Please check back later.');
-                    } else {
-                        result.sessions.forEach(sessionData => {
-                            const option = document.createElement('option');
-                            option.value = sessionData.session;
-                            option.textContent = sessionData.session;
-                            sessionSelect.appendChild(option);
-                        });
-                    }
-                } else {
-                    sessionSelect.innerHTML = '<option value="">Error loading sessions</option>';
-                    alert('Failed to load available sessions. Please refresh the page.');
-                }
-            } catch (error) {
-                console.error('Error loading sessions:', error);
-                sessionSelect.innerHTML = '<option value="">Error loading sessions</option>';
-                alert('Failed to load available sessions. Please refresh the page.');
-            }
-        }
-
-        // Load sessions when page loads
-        loadAvailableSessions();
 
         numChildrenSelect.addEventListener('change', function() {
             const numChildren = parseInt(this.value);
@@ -395,8 +320,10 @@
                 }
                 data.children_details = JSON.stringify(childrenDetails);
             }
-            
-            data.request_church_info = document.getElementById('requestChurchInfo').checked;
+
+            // Hardcode session to Friends and Family
+            data.session = 'Friends and Family - Tuesday, December 10, 6:00-8:30pm';
+            data.request_church_info = false;
             
             try {
                 const response = await fetch('/api/register/member', {
@@ -413,9 +340,9 @@
                     const successMsg = document.getElementById('successMessage');
                     successMsg.innerHTML = `
                         <strong>Registration Successful!</strong><br><br>
-                        Thank you for registering. A confirmation email has been sent to <strong>${data.email}</strong> with your registration details.<br><br>
+                        Thank you for registering your guest for the Friends and Family session on December 10. A confirmation email has been sent to <strong>${data.email}</strong> with your registration details.<br><br>
                         <strong>Member:</strong> ${data.member_first_name} ${data.member_last_name}<br>
-                        <strong>Session:</strong> ${data.session}<br>
+                        <strong>Guest:</strong> ${data.first_name} ${data.last_name}<br>
                         <strong>Adults & Older Children (6th grade+):</strong> ${data.num_adults}<br>
                         <strong>Number of Children:</strong> ${data.num_children}
                     `;
