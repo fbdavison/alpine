@@ -168,9 +168,9 @@ function getSessionChildCount(session) {
     WHERE session = ?
   `, [session]);
 
-  if (generalResult.length > 0 && generalResult[0].values.length > 0) {
-    totalChildren += generalResult[0].values[0][0] || 0;
-  }
+  const generalCount = (generalResult.length > 0 && generalResult[0].values.length > 0)
+    ? (generalResult[0].values[0][0] || 0)
+    : 0;
 
   // Count children from member registrations
   const memberResult = db.exec(`
@@ -179,9 +179,13 @@ function getSessionChildCount(session) {
     WHERE session = ?
   `, [session]);
 
-  if (memberResult.length > 0 && memberResult[0].values.length > 0) {
-    totalChildren += memberResult[0].values[0][0] || 0;
-  }
+  const memberCount = (memberResult.length > 0 && memberResult[0].values.length > 0)
+    ? (memberResult[0].values[0][0] || 0)
+    : 0;
+
+  totalChildren = generalCount + memberCount;
+
+  console.log(`🔍 getSessionChildCount("${session}"): general=${generalCount}, member=${memberCount}, total=${totalChildren}`);
 
   return totalChildren;
 }
@@ -1155,6 +1159,47 @@ app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) =
   } catch (err) {
     console.error('Error deleting registration:', err);
     res.status(500).json({ success: false, message: 'Failed to delete registration' });
+  }
+});
+
+// Debug endpoint to check session name mismatches
+app.get('/api/admin/debug/session-names', authenticateToken, (req, res) => {
+  try {
+    // Get all session names from sessions table
+    const sessionsResult = db.exec('SELECT name FROM sessions ORDER BY name');
+    const sessionNames = sessionsResult[0]?.values.map(row => row[0]) || [];
+
+    // Get unique session names from general registrations
+    const generalResult = db.exec('SELECT DISTINCT session FROM general_registrations ORDER BY session');
+    const generalSessions = generalResult[0]?.values.map(row => row[0]) || [];
+
+    // Get unique session names from member registrations
+    const memberResult = db.exec('SELECT DISTINCT session FROM member_registrations ORDER BY session');
+    const memberSessions = memberResult[0]?.values.map(row => row[0]) || [];
+
+    // Get counts for each
+    const generalCountResult = db.exec('SELECT COUNT(*) as count FROM general_registrations');
+    const memberCountResult = db.exec('SELECT COUNT(*) as count FROM member_registrations');
+
+    const generalTotal = generalCountResult[0]?.values[0]?.[0] || 0;
+    const memberTotal = memberCountResult[0]?.values[0]?.[0] || 0;
+
+    res.json({
+      success: true,
+      debug: {
+        sessionNames: sessionNames,
+        generalRegistrationSessions: generalSessions,
+        memberRegistrationSessions: memberSessions,
+        totalGeneralRegistrations: generalTotal,
+        totalMemberRegistrations: memberTotal,
+        sessionCount: sessionNames.length,
+        generalSessionCount: generalSessions.length,
+        memberSessionCount: memberSessions.length
+      }
+    });
+  } catch (err) {
+    console.error('Error in debug endpoint:', err);
+    res.status(500).json({ success: false, message: 'Debug query failed' });
   }
 });
 
