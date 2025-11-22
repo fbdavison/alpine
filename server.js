@@ -800,7 +800,7 @@ app.post('/api/register/member', async (req, res) => {
       (member_first_name, member_last_name, first_name, last_name, email, phone,
        street_address, city, state, zip, num_adults, num_children, children_details,
        comments, request_church_info, session)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [member_first_name, member_last_name, first_name, last_name, email, phone,
        street_address, city, state, zip, num_adults, num_children,
        children_details || '', comments || '', request_church_info ? 1 : 0, session]
