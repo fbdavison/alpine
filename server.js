@@ -345,26 +345,26 @@ async function sendMemberRegistrationEmail(registrationData) {
           <img src="cid:logo" alt="Alpine Village Logo" style="max-width: 200px; height: auto;">
         </div>
 
-        <p>Hi ${registrationData.first_name},</p>
+        <p>Hi ${registrationData.member_first_name},</p>
 
-        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church.</p>
+        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church for the Friends and Family session on Wednesday, December 10, 6-8:30pm.</p>
 
-        <p><strong>Session:</strong> ${registrationData.session}</p>
+        <p><strong>Guest Name:</strong> ${registrationData.first_name} ${registrationData.last_name}</p>
         <p><strong>Adult/older children (6th grade +) tickets:</strong> ${registrationData.num_adults}</p>
         <p><strong>Children (up to 5th grade) tickets:</strong> ${registrationData.num_children}</p>
 
-        <p>Please email <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>, if these ticket reservations need to be changed or cancelled. Space is limited for all sessions. When we know about changes and cancellations we can offer unused tickets to others.</p>
+        <p>Please email <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>, if these ticket reservations need to be changed or cancelled.</p>
 
         <p>At all sessions we are collecting non-perishable food donations for Brinkley Heights Ministries. These donations are not required to attend, but the opportunity is available for all that want to participate. Specific items requested include: canned meat, canned fruit, canned vegetables, canned beans, mac & cheese, cereal, saltines, and peanut butter. Please do not donate expired items.</p>
 
-        <h3 style="color: #c54545;">Here are a few reminders as you prepare to come to Alpine Village this year:</h3>
+        <p><strong>Please let your guests know the following:</strong></p>
         <ul>
-          <li>Paper tickets are not required. You will check-in at the registration table when you arrive.</li>
+          <li>Paper tickets are not required. They will check-in at the registration table when they arrive.</li>
           <li>Doors will open promptly at the start time of the session and all activities will be available until the Village closes at the designed end time. However, the North Pole line will close 15 minutes before the session ends.</li>
-          <li>For your safety, our security team will be checking all bags when you enter. Please be assured that our team is well trained and will handle this with the upmost professionalism.</li>
+          <li>For your safety, our security team will be checking all bags at the entrance. Please be assured that our team is well trained and will handle this with the upmost professionalism.</li>
           <li>No strollers are allowed in the Village, except for children with special needs.</li>
           <li>No animals are allowed in the Village. Registered service animals are permitted, with prior notification. Documentation must be presented at the church and verified by the Alpine Village director, prior to attending Alpine Village.</li>
-          <li>We recommend, if possible, leaving heavy coats in your car. We do not have the space to store winter gear for our guests. If there is more than one adult in your party, you are welcome to drop off party members under the awning at the door.</li>
+          <li>We recommend, if possible, leaving heavy coats in the car. We do not have the space to store winter gear for our guests. If there is more than one adult in your party, you are welcome to drop off party members under the awning at the door.</li>
         </ul>
 
         <p>If you have any questions, please contact us at <a href="mailto:alpinevillage@trinitybaptistchurch.org">alpinevillage@trinitybaptistchurch.org</a>.</p>
@@ -800,10 +800,11 @@ app.post('/api/register/member', async (req, res) => {
       (member_first_name, member_last_name, first_name, last_name, email, phone,
        street_address, city, state, zip, num_adults, num_children, children_details,
        comments, request_church_info, session)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [member_first_name, member_last_name, first_name, last_name, email, phone,
-       street_address, city, state, zip, num_adults, num_children,
-       children_details || '', comments || '', request_church_info ? 1 : 0, session]
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [member_first_name, member_last_name, first_name, last_name, email || '',
+       phone || '', street_address || '', city || '', state || '', zip || '',
+       num_adults, num_children, children_details || '', comments || '',
+       request_church_info ? 1 : 0, session]
     );
 
     saveDatabase();
