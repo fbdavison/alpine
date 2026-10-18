@@ -13,11 +13,16 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not set. See .env.example.');
 }
 
-const useSsl = /sslmode=require/.test(process.env.DATABASE_URL) || process.env.PGSSLMODE === 'require';
+// Default to SSL (without strict verification, since hosted Postgres often
+// terminates TLS with a self-signed/internal CA cert) unless the connection
+// string targets localhost or explicitly disables SSL.
+const isLocalDb = /^postgres(ql)?:\/\/[^/]*@?(localhost|127\.0\.0\.1)/i.test(process.env.DATABASE_URL);
+const sslDisabled = /sslmode=disable/i.test(process.env.DATABASE_URL) || process.env.PGSSLMODE === 'disable';
+const useSsl = !isLocalDb && !sslDisabled;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: useSsl ? { rejectUnauthorized: false } : undefined
+  ssl: useSsl ? { rejectUnauthorized: false } : false
 });
 
 pool.on('error', (err) => {
