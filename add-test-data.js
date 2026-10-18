@@ -2,21 +2,13 @@
 // Usage: node add-test-data.js
 
 const fs = require('fs');
-const initSqlJs = require('sql.js');
+if (fs.existsSync('.env')) {
+  require('dotenv').config();
+}
 
-const dbPath = './registrations.db';
+const db = require('./db');
 
 async function addTestData() {
-  const SQL = await initSqlJs();
-
-  if (!fs.existsSync(dbPath)) {
-    console.error('Database file not found:', dbPath);
-    process.exit(1);
-  }
-
-  const buffer = fs.readFileSync(dbPath);
-  const db = new SQL.Database(buffer);
-
   const session = 'Wednesday December 10, 2025 6:00-8:30p (Friends & Family)';
 
   // Test data: Member registrations
@@ -194,8 +186,8 @@ async function addTestData() {
   let insertedCount = 0;
 
   try {
-    testRegistrations.forEach((reg, index) => {
-      db.run(`INSERT INTO member_registrations
+    for (const [index, reg] of testRegistrations.entries()) {
+      await db.run(`INSERT INTO member_registrations
         (member_first_name, member_last_name, first_name, last_name, email, phone,
          street_address, city, state, zip, num_adults, num_children, children_details,
          comments, request_church_info, session)
@@ -223,12 +215,7 @@ async function addTestData() {
       totalChildren += reg.num_children;
       insertedCount++;
       console.log(`✓ Added registration ${index + 1}: ${reg.first_name} ${reg.last_name} (${reg.num_children} children)`);
-    });
-
-    // Save database
-    const data = db.export();
-    const bufferOut = Buffer.from(data);
-    fs.writeFileSync(dbPath, bufferOut);
+    }
 
     console.log(`\n✓ Successfully added ${insertedCount} registrations with ${totalChildren} total children`);
     console.log(`\nSession: ${session}`);
@@ -238,10 +225,10 @@ async function addTestData() {
 
   } catch (error) {
     console.error('Error inserting test data:', error);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    await db.pool.end();
   }
-
-  db.close();
 }
 
 addTestData();

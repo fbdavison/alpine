@@ -2,26 +2,18 @@
 // Usage: node fill-thursday-session.js
 
 const fs = require('fs');
-const initSqlJs = require('sql.js');
+if (fs.existsSync('.env')) {
+  require('dotenv').config();
+}
 
-const dbPath = './registrations.db';
+const db = require('./db');
 
 async function fillThursdaySession() {
-  const SQL = await initSqlJs();
-
-  if (!fs.existsSync(dbPath)) {
-    console.error('Database file not found:', dbPath);
-    process.exit(1);
-  }
-
-  const buffer = fs.readFileSync(dbPath);
-  const db = new SQL.Database(buffer);
-
   const session = 'Thursday December 11, 2025 6:00-8:30p';
   const targetChildren = 450;
 
   // Check current count
-  const countResult = db.exec(`
+  const countResult = await db.exec(`
     SELECT SUM(num_children) as total
     FROM general_registrations
     WHERE session = ?
@@ -37,7 +29,7 @@ async function fillThursdaySession() {
   if (childrenNeeded <= 0) {
     console.log(`Thursday session already has ${currentChildren} children (target: ${targetChildren})`);
     console.log('No additional registrations needed.');
-    db.close();
+    await db.pool.end();
     return;
   }
 
@@ -166,8 +158,8 @@ async function fillThursdaySession() {
   let insertedChildren = 0;
 
   try {
-    registrations.forEach((reg, index) => {
-      db.run(`INSERT INTO general_registrations
+    for (const [index, reg] of registrations.entries()) {
+      await db.run(`INSERT INTO general_registrations
         (first_name, last_name, email, phone, street_address, city, state, zip,
          num_adults, num_children, children_details, comments, request_church_info, session)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -195,12 +187,7 @@ async function fillThursdaySession() {
       if ((index + 1) % 25 === 0 || index === registrations.length - 1) {
         console.log(`✓ Inserted ${index + 1}/${registrations.length} registrations (${insertedChildren} children)`);
       }
-    });
-
-    // Save database
-    const data = db.export();
-    const bufferOut = Buffer.from(data);
-    fs.writeFileSync(dbPath, bufferOut);
+    }
 
     console.log(`\n✓ Successfully filled Thursday session to capacity!`);
     console.log(`\nSession: ${session}`);
@@ -211,10 +198,10 @@ async function fillThursdaySession() {
 
   } catch (error) {
     console.error('Error inserting test data:', error);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    await db.pool.end();
   }
-
-  db.close();
 }
 
 fillThursdaySession();

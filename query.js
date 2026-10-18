@@ -2,75 +2,55 @@
 // Usage: node query.js "SELECT * FROM general_registrations"
 
 const fs = require('fs');
-const initSqlJs = require('sql.js');
+if (fs.existsSync('.env')) {
+  require('dotenv').config();
+}
 
-const dbPath = './registrations.db';
+const { Pool } = require('pg');
 
 async function runQuery(queryString) {
-  const SQL = await initSqlJs();
-
-  if (!fs.existsSync(dbPath)) {
-    console.error('Database file not found:', dbPath);
-    process.exit(1);
-  }
-
-  const buffer = fs.readFileSync(dbPath);
-  const db = new SQL.Database(buffer);
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
   try {
-    const result = db.exec(queryString);
+    const result = await pool.query(queryString);
+    const columns = result.fields.map(f => f.name);
+    const values = result.rows.map(row => columns.map(col => row[col]));
 
-    if (result.length === 0) {
+    if (values.length === 0) {
       console.log('Query executed successfully. No results returned.');
       return;
     }
 
-    // Display results in a formatted way
-    result.forEach((queryResult, idx) => {
-      if (result.length > 1) {
-        console.log(`\n=== Result Set ${idx + 1} ===`);
-      }
-
-      const columns = queryResult.columns;
-      const values = queryResult.values;
-
-      if (values.length === 0) {
-        console.log('No rows returned.');
-        return;
-      }
-
-      // Calculate column widths
-      const colWidths = columns.map((col, i) => {
-        const maxValueLength = Math.max(
-          ...values.map(row => String(row[i] || '').length),
-          col.length
-        );
-        return Math.min(maxValueLength, 50); // Max width 50
-      });
-
-      // Print header
-      const header = columns.map((col, i) => col.padEnd(colWidths[i])).join(' | ');
-      console.log(header);
-      console.log(colWidths.map(w => '-'.repeat(w)).join('-+-'));
-
-      // Print rows
-      values.forEach(row => {
-        const rowStr = row.map((val, i) => {
-          const str = String(val || '');
-          return str.length > 50 ? str.substring(0, 47) + '...' : str.padEnd(colWidths[i]);
-        }).join(' | ');
-        console.log(rowStr);
-      });
-
-      console.log(`\n${values.length} row(s) returned.`);
+    // Calculate column widths
+    const colWidths = columns.map((col, i) => {
+      const maxValueLength = Math.max(
+        ...values.map(row => String(row[i] ?? '').length),
+        col.length
+      );
+      return Math.min(maxValueLength, 50); // Max width 50
     });
 
+    // Print header
+    const header = columns.map((col, i) => col.padEnd(colWidths[i])).join(' | ');
+    console.log(header);
+    console.log(colWidths.map(w => '-'.repeat(w)).join('-+-'));
+
+    // Print rows
+    values.forEach(row => {
+      const rowStr = row.map((val, i) => {
+        const str = String(val ?? '');
+        return str.length > 50 ? str.substring(0, 47) + '...' : str.padEnd(colWidths[i]);
+      }).join(' | ');
+      console.log(rowStr);
+    });
+
+    console.log(`\n${values.length} row(s) returned.`);
   } catch (error) {
     console.error('Query error:', error.message);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    await pool.end();
   }
-
-  db.close();
 }
 
 // Get query from command line argument

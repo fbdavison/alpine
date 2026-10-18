@@ -1,6 +1,6 @@
 # Event Registration System
 
-A Node.js web application with two registration forms connected to an SQLite database.
+A Node.js web application with two registration forms connected to a Postgres database.
 
 ## Features
 
@@ -11,7 +11,7 @@ A Node.js web application with two registration forms connected to an SQLite dat
 - **Reminder Emails**: Automated reminder emails sent 48 hours before each session
 - **Alpine Village Branding**: Beautiful logo displayed on all pages and included in emails
 - Dynamic child information fields based on number of children selected
-- SQLite database for storing all registrations
+- Postgres database for storing all registrations
 - Clean, responsive UI with gradient themes
 
 ## Setup Instructions
@@ -21,7 +21,23 @@ A Node.js web application with two registration forms connected to an SQLite dat
    npm install
    ```
 
-2. **Configure Email Settings**
+2. **Configure the Database**
+
+   Create a `.env` file in the root directory (use `.env.example` as a template):
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then set `DATABASE_URL` in `.env` to your Postgres connection string:
+   ```
+   DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DBNAME?sslmode=require
+   ```
+
+   The app creates its tables automatically on startup (see [Database](#database) below).
+   If you're migrating from the old SQLite-backed version, see
+   [Migrating from SQLite](#migrating-from-sqlite).
+
+3. **Configure Email Settings**
 
    The application supports two methods for configuring email:
 
@@ -66,15 +82,15 @@ A Node.js web application with two registration forms connected to an SQLite dat
 
    See [EMAIL_SETUP.md](EMAIL_SETUP.md) for detailed configuration instructions.
 
-3. **Start the Server**
+4. **Start the Server**
    ```bash
    npm start
    ```
 
-4. **Access the Application**
+5. **Access the Application**
    Open your browser and go to: `http://localhost:3000`
 
-5. **Set Up Reminder Emails (Optional)**
+6. **Set Up Reminder Emails (Optional)**
 
    To automatically send reminder emails 48 hours before each session, set up a daily cron job:
 
@@ -96,9 +112,30 @@ A Node.js web application with two registration forms connected to an SQLite dat
 
 ## Database
 
-The application automatically creates an SQLite database file (`registrations.db`) with two tables:
+The application connects to Postgres via `DATABASE_URL` and automatically creates the
+following tables on startup if they don't already exist:
 - `general_registrations` - Stores general registration submissions
 - `member_registrations` - Stores member + guest registration submissions
+- `sessions` - Session definitions (name, type, child limit, display order), seeded
+  with the default sessions the first time the table is empty
+
+See [DATABASE_QUERIES.md](DATABASE_QUERIES.md) for example queries.
+
+## Migrating from SQLite
+
+Earlier versions of this app stored data in a local `registrations.db` file (via
+`sql.js`). If you have an existing `registrations.db` with data you want to keep:
+
+1. Set `DATABASE_URL` in `.env` to point at your target Postgres database.
+2. Run:
+   ```bash
+   node migrate-to-postgres.js
+   ```
+
+This copies all rows from `registrations.db` into the Postgres tables (creating them
+first if needed) and is safe to leave `registrations.db` in place afterward — the app
+no longer reads it. Note: re-running the script will duplicate registration rows, so
+only run it once per target database.
 
 ## Forms
 
@@ -123,5 +160,5 @@ Additional fields:
 
 - Node.js
 - Express.js
-- SQLite3
+- Postgres (via `pg`)
 - HTML/CSS/JavaScript

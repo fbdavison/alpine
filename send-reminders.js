@@ -8,7 +8,6 @@
  * 0 9 * * * cd /path/to/alpine && node send-reminders.js
  */
 
-const sqlite3 = require('sqlite3').verbose();
 const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
@@ -24,7 +23,7 @@ if (fs.existsSync('.env')) {
 }
 
 // Database setup
-const db = new sqlite3.Database('./registrations.db');
+const db = require('./db');
 
 // Email transporter setup
 // Configure via environment variables (either .env file or server environment variables)
@@ -186,53 +185,64 @@ async function sendReminders() {
   console.log('  End:', windowEnd.toISOString());
 
   // Get all registrations
-  db.all(`
-    SELECT * FROM general_registrations
-    UNION ALL
-    SELECT * FROM member_registrations
-  `, [], async (err, rows) => {
-    if (err) {
-      console.error('Database error:', err);
-      db.close();
-      process.exit(1);
+  let rows;
+  try {
+    const result = await db.exec(`
+      SELECT * FROM general_registrations
+      UNION ALL
+      SELECT * FROM member_registrations
+    `);
+    if (result.length > 0) {
+      const columns = result[0].columns;
+      rows = result[0].values.map(row => {
+        const obj = {};
+        columns.forEach((col, idx) => { obj[col] = row[idx]; });
+        return obj;
+      });
+    } else {
+      rows = [];
+    }
+  } catch (err) {
+    console.error('Database error:', err);
+    await db.pool.end();
+    process.exit(1);
+  }
+
+  let emailsSent = 0;
+  let emailsFailed = 0;
+  let sessionsSkipped = 0;
+
+  for (const registration of rows) {
+    const sessionDate = parseSessionDateTime(registration.session);
+
+    if (!sessionDate) {
+      console.log(`Could not parse session date for: ${registration.session}`);
+      sessionsSkipped++;
+      continue;
     }
 
-    let emailsSent = 0;
-    let emailsFailed = 0;
-    let sessionsSkipped = 0;
+    // Check if session is within our 46-50 hour window
+    if (sessionDate >= windowStart && sessionDate <= windowEnd) {
+      console.log(`\nSending reminder for session: ${registration.session}`);
+      console.log(`  To: ${registration.email} (${registration.first_name} ${registration.last_name})`);
+      console.log(`  Session date: ${sessionDate.toISOString()}`);
 
-    for (const registration of rows) {
-      const sessionDate = parseSessionDateTime(registration.session);
-
-      if (!sessionDate) {
-        console.log(`Could not parse session date for: ${registration.session}`);
-        sessionsSkipped++;
-        continue;
-      }
-
-      // Check if session is within our 46-50 hour window
-      if (sessionDate >= windowStart && sessionDate <= windowEnd) {
-        console.log(`\nSending reminder for session: ${registration.session}`);
-        console.log(`  To: ${registration.email} (${registration.first_name} ${registration.last_name})`);
-        console.log(`  Session date: ${sessionDate.toISOString()}`);
-
-        const success = await sendReminderEmail(registration);
-        if (success) {
-          emailsSent++;
-        } else {
-          emailsFailed++;
-        }
+      const success = await sendReminderEmail(registration);
+      if (success) {
+        emailsSent++;
+      } else {
+        emailsFailed++;
       }
     }
+  }
 
-    console.log('\n=== Reminder Email Summary ===');
-    console.log(`Emails sent successfully: ${emailsSent}`);
-    console.log(`Emails failed: ${emailsFailed}`);
-    console.log(`Sessions skipped (unparseable): ${sessionsSkipped}`);
-    console.log('==============================\n');
+  console.log('\n=== Reminder Email Summary ===');
+  console.log(`Emails sent successfully: ${emailsSent}`);
+  console.log(`Emails failed: ${emailsFailed}`);
+  console.log(`Sessions skipped (unparseable): ${sessionsSkipped}`);
+  console.log('==============================\n');
 
-    db.close();
-  });
+  await db.pool.end();
 }
 
 // Run the script

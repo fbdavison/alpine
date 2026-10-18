@@ -12,9 +12,9 @@ if (fs.existsSync('.env')) {
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
-const initSqlJs = require('sql.js');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,115 +54,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-let db;
-const dbPath = './registrations.db';
-
-// Initialize SQLite Database
-async function initializeDatabase() {
-  const SQL = await initSqlJs();
-  
-  if (fs.existsSync(dbPath)) {
-    const buffer = fs.readFileSync(dbPath);
-    db = new SQL.Database(buffer);
-  } else {
-    db = new SQL.Database();
-  }
-
-  // Create tables
-  db.run(`CREATE TABLE IF NOT EXISTS general_registrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    street_address TEXT NOT NULL,
-    city TEXT NOT NULL,
-    state TEXT NOT NULL,
-    zip TEXT NOT NULL,
-    num_adults INTEGER NOT NULL,
-    num_children INTEGER NOT NULL,
-    children_details TEXT,
-    comments TEXT,
-    request_church_info INTEGER DEFAULT 0,
-    session TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS member_registrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    member_first_name TEXT NOT NULL,
-    member_last_name TEXT NOT NULL,
-    first_name TEXT NOT NULL,
-    last_name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    street_address TEXT NOT NULL,
-    city TEXT NOT NULL,
-    state TEXT NOT NULL,
-    zip TEXT NOT NULL,
-    num_adults INTEGER NOT NULL,
-    num_children INTEGER NOT NULL,
-    children_details TEXT,
-    comments TEXT,
-    request_church_info INTEGER DEFAULT 0,
-    session TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  db.run(`CREATE TABLE IF NOT EXISTS sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    type TEXT NOT NULL,
-    child_limit INTEGER NOT NULL DEFAULT 450,
-    is_active INTEGER DEFAULT 1,
-    display_order INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-  // Initialize default sessions if table is empty
-  const sessionCheck = db.exec('SELECT COUNT(*) as count FROM sessions');
-  const sessionCount = sessionCheck[0]?.values[0]?.[0] || 0;
-
-  if (sessionCount === 0) {
-    console.log('Initializing default sessions...');
-
-    // Member-only session
-    db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
-      ['Wednesday December 10, 2025 6:00-8:30p (Friends & Family)', 'member', 450, 1]);
-
-    // General sessions (available to both)
-    const generalSessions = [
-      'Thursday December 11, 2025 6:00-8:30p',
-      'Friday December 12, 2025 6:00-8:30p',
-      'Saturday December 13, 2025 2:00-4:30p',
-      'Saturday December 13, 2025 6:00-8:30p',
-      'Sunday December 14, 2025 2:00-4:30p',
-      'Sunday December 14, 2025 6:00-8:30p'
-    ];
-
-    generalSessions.forEach((session, idx) => {
-      db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
-        [session, 'both', 450, idx + 2]);
-    });
-  }
-
-  saveDatabase();
-  console.log('Database initialized successfully');
-}
-
-// Save database to file
-function saveDatabase() {
-  const data = db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbPath, buffer);
-}
-
 // Get total children count for a specific session
-function getSessionChildCount(session) {
+async function getSessionChildCount(session) {
   let totalChildren = 0;
 
   // Count children from general registrations
-  const generalResult = db.exec(`
+  const generalResult = await db.exec(`
     SELECT SUM(num_children) as total
     FROM general_registrations
     WHERE session = ?
@@ -173,7 +70,7 @@ function getSessionChildCount(session) {
     : 0;
 
   // Count children from member registrations
-  const memberResult = db.exec(`
+  const memberResult = await db.exec(`
     SELECT SUM(num_children) as total
     FROM member_registrations
     WHERE session = ?
@@ -191,8 +88,8 @@ function getSessionChildCount(session) {
 }
 
 // Get session info from database
-function getSessionInfo(sessionName) {
-  const result = db.exec(`SELECT * FROM sessions WHERE name = ? AND is_active = 1`, [sessionName]);
+async function getSessionInfo(sessionName) {
+  const result = await db.exec(`SELECT * FROM sessions WHERE name = ? AND is_active = 1`, [sessionName]);
   if (result.length > 0 && result[0].values.length > 0) {
     const columns = result[0].columns;
     const values = result[0].values[0];
@@ -206,25 +103,25 @@ function getSessionInfo(sessionName) {
 }
 
 // Check if a session is still available (under the child limit)
-function isSessionAvailable(sessionName) {
-  const sessionInfo = getSessionInfo(sessionName);
+async function isSessionAvailable(sessionName) {
+  const sessionInfo = await getSessionInfo(sessionName);
   if (!sessionInfo) return false;
 
-  const currentCount = getSessionChildCount(sessionName);
+  const currentCount = await getSessionChildCount(sessionName);
   return currentCount < sessionInfo.child_limit;
 }
 
 // Get session limit
-function getSessionLimit(sessionName) {
-  const sessionInfo = getSessionInfo(sessionName);
+async function getSessionLimit(sessionName) {
+  const sessionInfo = await getSessionInfo(sessionName);
   return sessionInfo ? sessionInfo.child_limit : SESSION_CHILD_LIMIT;
 }
 
 // Get all sessions with their current child counts
-function getAllSessionsWithCounts(sessionList) {
-  return sessionList.map(sessionName => {
-    const sessionInfo = getSessionInfo(sessionName);
-    const childCount = getSessionChildCount(sessionName);
+async function getAllSessionsWithCounts(sessionList) {
+  return Promise.all(sessionList.map(async sessionName => {
+    const sessionInfo = await getSessionInfo(sessionName);
+    const childCount = await getSessionChildCount(sessionName);
     const limit = sessionInfo ? sessionInfo.child_limit : SESSION_CHILD_LIMIT;
 
     return {
@@ -234,11 +131,11 @@ function getAllSessionsWithCounts(sessionList) {
       spotsRemaining: limit - childCount,
       limit: limit
     };
-  });
+  }));
 }
 
 // Get sessions from database
-function getSessionsFromDB(type) {
+async function getSessionsFromDB(type) {
   let query = 'SELECT name FROM sessions WHERE is_active = 1';
   const params = [];
 
@@ -252,7 +149,7 @@ function getSessionsFromDB(type) {
 
   query += ' ORDER BY display_order';
 
-  const result = db.exec(query, params);
+  const result = await db.exec(query, params);
   if (result.length > 0 && result[0].values.length > 0) {
     return result[0].values.map(row => row[0]);
   }
@@ -523,7 +420,7 @@ app.post('/api/login', (req, res) => {
 });
 
 // API endpoint to get reservations by session (protected)
-app.get('/api/reservations', authenticateToken, (req, res) => {
+app.get('/api/reservations', authenticateToken, async (req, res) => {
   const { session } = req.query;
 
   if (!session) {
@@ -534,7 +431,7 @@ app.get('/api/reservations', authenticateToken, (req, res) => {
     let reservations = [];
 
     // Get general registrations
-    const generalResult = db.exec(`
+    const generalResult = await db.exec(`
       SELECT * FROM general_registrations
       WHERE session = ?
       ORDER BY created_at DESC
@@ -553,7 +450,7 @@ app.get('/api/reservations', authenticateToken, (req, res) => {
     }
 
     // Get member registrations
-    const memberResult = db.exec(`
+    const memberResult = await db.exec(`
       SELECT * FROM member_registrations
       WHERE session = ?
       ORDER BY created_at DESC
@@ -575,7 +472,7 @@ app.get('/api/reservations', authenticateToken, (req, res) => {
     const totalRegistrations = reservations.length;
     const totalAdults = reservations.reduce((sum, r) => sum + (r.num_adults || 0), 0);
     const totalChildren = reservations.reduce((sum, r) => sum + (r.num_children || 0), 0);
-    const sessionLimit = getSessionLimit(session);
+    const sessionLimit = await getSessionLimit(session);
     const spotsRemaining = sessionLimit - totalChildren;
 
     res.json({
@@ -596,10 +493,10 @@ app.get('/api/reservations', authenticateToken, (req, res) => {
 });
 
 // API endpoint to get available general sessions
-app.get('/api/sessions/general', (req, res) => {
+app.get('/api/sessions/general', async (req, res) => {
   try {
-    const sessionNames = getSessionsFromDB('general');
-    const sessionsWithCounts = getAllSessionsWithCounts(sessionNames);
+    const sessionNames = await getSessionsFromDB('general');
+    const sessionsWithCounts = await getAllSessionsWithCounts(sessionNames);
     const availableSessions = sessionsWithCounts.filter(s => s.available);
     res.json({
       success: true,
@@ -612,10 +509,10 @@ app.get('/api/sessions/general', (req, res) => {
 });
 
 // API endpoint to get available member sessions
-app.get('/api/sessions/member', (req, res) => {
+app.get('/api/sessions/member', async (req, res) => {
   try {
-    const sessionNames = getSessionsFromDB('member');
-    const sessionsWithCounts = getAllSessionsWithCounts(sessionNames);
+    const sessionNames = await getSessionsFromDB('member');
+    const sessionsWithCounts = await getAllSessionsWithCounts(sessionNames);
     const availableSessions = sessionsWithCounts.filter(s => s.available);
     res.json({
       success: true,
@@ -628,10 +525,10 @@ app.get('/api/sessions/member', (req, res) => {
 });
 
 // API endpoint to get all sessions for admin (including full ones)
-app.get('/api/sessions/all', authenticateToken, (req, res) => {
+app.get('/api/sessions/all', authenticateToken, async (req, res) => {
   try {
-    const sessionNames = getSessionsFromDB('all');
-    const sessionsWithCounts = getAllSessionsWithCounts(sessionNames);
+    const sessionNames = await getSessionsFromDB('all');
+    const sessionsWithCounts = await getAllSessionsWithCounts(sessionNames);
     res.json({
       success: true,
       sessions: sessionsWithCounts
@@ -643,16 +540,16 @@ app.get('/api/sessions/all', authenticateToken, (req, res) => {
 });
 
 // API endpoint to get all sessions including inactive ones for admin
-app.get('/api/sessions/all-with-inactive', authenticateToken, (req, res) => {
+app.get('/api/sessions/all-with-inactive', authenticateToken, async (req, res) => {
   try {
     const query = 'SELECT name, is_active, type, child_limit FROM sessions ORDER BY display_order';
-    const result = db.exec(query);
+    const result = await db.exec(query);
 
     if (result.length > 0 && result[0].values.length > 0) {
-      const sessions = result[0].values.map(row => {
+      const sessions = await Promise.all(result[0].values.map(async row => {
         const sessionName = row[0];
         const isActive = row[1];
-        const childCount = getSessionChildCount(sessionName);
+        const childCount = await getSessionChildCount(sessionName);
         const limit = row[3] || SESSION_CHILD_LIMIT;
 
         return {
@@ -664,7 +561,7 @@ app.get('/api/sessions/all-with-inactive', authenticateToken, (req, res) => {
           spotsRemaining: limit - childCount,
           limit: limit
         };
-      });
+      }));
 
       res.json({
         success: true,
@@ -691,7 +588,7 @@ app.post('/api/register/general', async (req, res) => {
 
   try {
     // Validate session exists and is active
-    const sessionInfo = getSessionInfo(session);
+    const sessionInfo = await getSessionInfo(session);
     if (!sessionInfo) {
       return res.status(400).json({
         success: false,
@@ -700,7 +597,7 @@ app.post('/api/register/general', async (req, res) => {
     }
 
     // Check if this session is available for general registration
-    const generalSessions = getSessionsFromDB('general');
+    const generalSessions = await getSessionsFromDB('general');
     if (!generalSessions.includes(session)) {
       return res.status(400).json({
         success: false,
@@ -709,7 +606,7 @@ app.post('/api/register/general', async (req, res) => {
     }
 
     // Check if session would exceed child limit
-    const currentChildCount = getSessionChildCount(session);
+    const currentChildCount = await getSessionChildCount(session);
     const newChildCount = parseInt(num_children) || 0;
     const sessionLimit = sessionInfo.child_limit;
 
@@ -721,7 +618,7 @@ app.post('/api/register/general', async (req, res) => {
       });
     }
 
-    db.run(`INSERT INTO general_registrations
+    await db.run(`INSERT INTO general_registrations
       (first_name, last_name, email, phone, street_address, city, state, zip,
        num_adults, num_children, children_details, comments, request_church_info, session)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -729,8 +626,6 @@ app.post('/api/register/general', async (req, res) => {
        num_adults, num_children, children_details || '', comments || '',
        request_church_info ? 1 : 0, session]
     );
-
-    saveDatabase();
 
     // Send confirmation email
     await sendGeneralRegistrationEmail({
@@ -766,7 +661,7 @@ app.post('/api/register/member', async (req, res) => {
 
   try {
     // Validate session exists and is active
-    const sessionInfo = getSessionInfo(session);
+    const sessionInfo = await getSessionInfo(session);
     if (!sessionInfo) {
       return res.status(400).json({
         success: false,
@@ -775,7 +670,7 @@ app.post('/api/register/member', async (req, res) => {
     }
 
     // Check if this session is available for member registration
-    const memberSessions = getSessionsFromDB('member');
+    const memberSessions = await getSessionsFromDB('member');
     if (!memberSessions.includes(session)) {
       return res.status(400).json({
         success: false,
@@ -784,7 +679,7 @@ app.post('/api/register/member', async (req, res) => {
     }
 
     // Check if session would exceed child limit
-    const currentChildCount = getSessionChildCount(session);
+    const currentChildCount = await getSessionChildCount(session);
     const newChildCount = parseInt(num_children) || 0;
     const sessionLimit = sessionInfo.child_limit;
 
@@ -796,7 +691,7 @@ app.post('/api/register/member', async (req, res) => {
       });
     }
 
-    db.run(`INSERT INTO member_registrations
+    await db.run(`INSERT INTO member_registrations
       (member_first_name, member_last_name, first_name, last_name, email, phone,
        street_address, city, state, zip, num_adults, num_children, children_details,
        comments, request_church_info, session)
@@ -806,8 +701,6 @@ app.post('/api/register/member', async (req, res) => {
        num_adults, num_children, children_details || '', comments || '',
        request_church_info ? 1 : 0, session]
     );
-
-    saveDatabase();
 
     // Send confirmation email
     await sendMemberRegistrationEmail({
@@ -838,9 +731,9 @@ app.post('/api/register/member', async (req, res) => {
 // Session management API endpoints (protected)
 
 // Get all sessions (including inactive)
-app.get('/api/admin/sessions', authenticateToken, (req, res) => {
+app.get('/api/admin/sessions', authenticateToken, async (req, res) => {
   try {
-    const result = db.exec('SELECT * FROM sessions ORDER BY display_order, created_at');
+    const result = await db.exec('SELECT * FROM sessions ORDER BY display_order, created_at');
 
     console.log('📊 Sessions query result:', {
       hasResults: result.length > 0,
@@ -853,19 +746,19 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
     }
 
     const columns = result[0].columns;
-    const sessions = result[0].values.map(row => {
+    const sessions = await Promise.all(result[0].values.map(async row => {
       const session = {};
       columns.forEach((col, idx) => {
         session[col] = row[idx];
       });
       // Add current child count
-      session.currentChildCount = getSessionChildCount(session.name);
+      session.currentChildCount = await getSessionChildCount(session.name);
       session.spotsRemaining = session.child_limit - session.currentChildCount;
 
       console.log(`📋 Session "${session.name}": ${session.currentChildCount} children, ${session.spotsRemaining} spots remaining`);
 
       return session;
-    });
+    }));
 
     console.log(`✅ Returning ${sessions.length} sessions to client`);
 
@@ -881,7 +774,7 @@ app.get('/api/admin/sessions', authenticateToken, (req, res) => {
 });
 
 // Create new session
-app.post('/api/admin/sessions', authenticateToken, (req, res) => {
+app.post('/api/admin/sessions', authenticateToken, async (req, res) => {
   const { name, type, child_limit, display_order } = req.body;
 
   if (!name || !type || !child_limit) {
@@ -899,14 +792,13 @@ app.post('/api/admin/sessions', authenticateToken, (req, res) => {
   }
 
   try {
-    db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
+    await db.run(`INSERT INTO sessions (name, type, child_limit, display_order) VALUES (?, ?, ?, ?)`,
       [name, type, parseInt(child_limit), parseInt(display_order) || 0]);
 
-    saveDatabase();
     res.json({ success: true, message: 'Session created successfully' });
   } catch (err) {
     console.error('Error creating session:', err);
-    if (err.message && err.message.includes('UNIQUE constraint')) {
+    if (err.code === '23505') {
       res.status(400).json({ success: false, message: 'A session with this name already exists' });
     } else {
       res.status(500).json({ success: false, message: 'Failed to create session' });
@@ -915,7 +807,7 @@ app.post('/api/admin/sessions', authenticateToken, (req, res) => {
 });
 
 // Update session
-app.put('/api/admin/sessions/:id', authenticateToken, (req, res) => {
+app.put('/api/admin/sessions/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { name, type, child_limit, is_active, display_order } = req.body;
 
@@ -934,14 +826,13 @@ app.put('/api/admin/sessions/:id', authenticateToken, (req, res) => {
   }
 
   try {
-    db.run(`UPDATE sessions SET name = ?, type = ?, child_limit = ?, is_active = ?, display_order = ? WHERE id = ?`,
+    await db.run(`UPDATE sessions SET name = ?, type = ?, child_limit = ?, is_active = ?, display_order = ? WHERE id = ?`,
       [name, type, parseInt(child_limit), is_active ? 1 : 0, parseInt(display_order) || 0, parseInt(id)]);
 
-    saveDatabase();
     res.json({ success: true, message: 'Session updated successfully' });
   } catch (err) {
     console.error('Error updating session:', err);
-    if (err.message && err.message.includes('UNIQUE constraint')) {
+    if (err.code === '23505') {
       res.status(400).json({ success: false, message: 'A session with this name already exists' });
     } else {
       res.status(500).json({ success: false, message: 'Failed to update session' });
@@ -950,24 +841,23 @@ app.put('/api/admin/sessions/:id', authenticateToken, (req, res) => {
 });
 
 // Delete session (soft delete - mark as inactive)
-app.delete('/api/admin/sessions/:id', authenticateToken, (req, res) => {
+app.delete('/api/admin/sessions/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
   try {
     // Check if there are registrations for this session
-    const sessionResult = db.exec('SELECT name FROM sessions WHERE id = ?', [parseInt(id)]);
+    const sessionResult = await db.exec('SELECT name FROM sessions WHERE id = ?', [parseInt(id)]);
 
     if (sessionResult.length === 0 || sessionResult[0].values.length === 0) {
       return res.status(404).json({ success: false, message: 'Session not found' });
     }
 
     const sessionName = sessionResult[0].values[0][0];
-    const registrationCount = getSessionChildCount(sessionName);
+    const registrationCount = await getSessionChildCount(sessionName);
 
     if (registrationCount > 0) {
       // Has registrations, just deactivate
-      db.run('UPDATE sessions SET is_active = 0 WHERE id = ?', [parseInt(id)]);
-      saveDatabase();
+      await db.run('UPDATE sessions SET is_active = 0 WHERE id = ?', [parseInt(id)]);
       return res.json({
         success: true,
         message: 'Session deactivated (has existing registrations)',
@@ -975,8 +865,7 @@ app.delete('/api/admin/sessions/:id', authenticateToken, (req, res) => {
       });
     } else {
       // No registrations, safe to delete
-      db.run('DELETE FROM sessions WHERE id = ?', [parseInt(id)]);
-      saveDatabase();
+      await db.run('DELETE FROM sessions WHERE id = ?', [parseInt(id)]);
       return res.json({
         success: true,
         message: 'Session deleted successfully',
@@ -990,7 +879,7 @@ app.delete('/api/admin/sessions/:id', authenticateToken, (req, res) => {
 });
 
 // Update registration (admin only)
-app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
+app.put('/api/admin/registrations/:type/:id', authenticateToken, async (req, res) => {
   const { type, id } = req.params;
   const {
     first_name, last_name, email, phone, street_address, city, state, zip,
@@ -1007,14 +896,14 @@ app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
     const tableName = type === 'general' ? 'general_registrations' : 'member_registrations';
 
     // Check if registration exists
-    const checkResult = db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
+    const checkResult = await db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
     if (checkResult.length === 0 || checkResult[0].values.length === 0) {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
     // Build update query based on type
     if (type === 'general') {
-      db.run(`UPDATE general_registrations SET
+      await db.run(`UPDATE general_registrations SET
         first_name = ?, last_name = ?, email = ?, phone = ?,
         street_address = ?, city = ?, state = ?, zip = ?,
         num_adults = ?, num_children = ?, children_details = ?,
@@ -1025,7 +914,7 @@ app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
          request_church_info ? 1 : 0, session, parseInt(id)]
       );
     } else {
-      db.run(`UPDATE member_registrations SET
+      await db.run(`UPDATE member_registrations SET
         member_first_name = ?, member_last_name = ?,
         first_name = ?, last_name = ?, email = ?, phone = ?,
         street_address = ?, city = ?, state = ?, zip = ?,
@@ -1039,7 +928,6 @@ app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
       );
     }
 
-    saveDatabase();
     res.json({ success: true, message: 'Registration updated successfully' });
   } catch (err) {
     console.error('Error updating registration:', err);
@@ -1048,20 +936,19 @@ app.put('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
 });
 
 // Bulk delete all registrations (admin only)
-app.delete('/api/admin/registrations/bulk/all', authenticateToken, (req, res) => {
+app.delete('/api/admin/registrations/bulk/all', authenticateToken, async (req, res) => {
   try {
     // Get counts before deletion
-    const generalCount = db.exec('SELECT COUNT(*) as count FROM general_registrations');
-    const memberCount = db.exec('SELECT COUNT(*) as count FROM member_registrations');
+    const generalCount = await db.exec('SELECT COUNT(*) as count FROM general_registrations');
+    const memberCount = await db.exec('SELECT COUNT(*) as count FROM member_registrations');
 
     const generalDeleted = generalCount[0]?.values[0]?.[0] || 0;
     const memberDeleted = memberCount[0]?.values[0]?.[0] || 0;
     const totalDeleted = generalDeleted + memberDeleted;
 
     // Delete all registrations from both tables
-    db.run('DELETE FROM general_registrations');
-    db.run('DELETE FROM member_registrations');
-    saveDatabase();
+    await db.run('DELETE FROM general_registrations');
+    await db.run('DELETE FROM member_registrations');
 
     res.json({
       success: true,
@@ -1075,7 +962,7 @@ app.delete('/api/admin/registrations/bulk/all', authenticateToken, (req, res) =>
 });
 
 // Bulk delete registrations by type (admin only)
-app.delete('/api/admin/registrations/bulk/:type', authenticateToken, (req, res) => {
+app.delete('/api/admin/registrations/bulk/:type', authenticateToken, async (req, res) => {
   const { type } = req.params;
 
   // Validate type
@@ -1087,12 +974,11 @@ app.delete('/api/admin/registrations/bulk/:type', authenticateToken, (req, res) 
     const tableName = type === 'general' ? 'general_registrations' : 'member_registrations';
 
     // Get count before deletion
-    const countResult = db.exec(`SELECT COUNT(*) as count FROM ${tableName}`);
+    const countResult = await db.exec(`SELECT COUNT(*) as count FROM ${tableName}`);
     const deletedCount = countResult[0]?.values[0]?.[0] || 0;
 
     // Delete all registrations of this type
-    db.run(`DELETE FROM ${tableName}`);
-    saveDatabase();
+    await db.run(`DELETE FROM ${tableName}`);
 
     res.json({
       success: true,
@@ -1106,22 +992,21 @@ app.delete('/api/admin/registrations/bulk/:type', authenticateToken, (req, res) 
 });
 
 // Bulk delete registrations by session (admin only)
-app.delete('/api/admin/registrations/bulk/session/:sessionName', authenticateToken, (req, res) => {
+app.delete('/api/admin/registrations/bulk/session/:sessionName', authenticateToken, async (req, res) => {
   const { sessionName } = req.params;
 
   try {
     // Get counts before deletion
-    const generalResult = db.exec('SELECT COUNT(*) as count FROM general_registrations WHERE session = ?', [sessionName]);
-    const memberResult = db.exec('SELECT COUNT(*) as count FROM member_registrations WHERE session = ?', [sessionName]);
+    const generalResult = await db.exec('SELECT COUNT(*) as count FROM general_registrations WHERE session = ?', [sessionName]);
+    const memberResult = await db.exec('SELECT COUNT(*) as count FROM member_registrations WHERE session = ?', [sessionName]);
 
     const generalDeleted = generalResult[0]?.values[0]?.[0] || 0;
     const memberDeleted = memberResult[0]?.values[0]?.[0] || 0;
     const totalDeleted = generalDeleted + memberDeleted;
 
     // Delete registrations for this session
-    db.run('DELETE FROM general_registrations WHERE session = ?', [sessionName]);
-    db.run('DELETE FROM member_registrations WHERE session = ?', [sessionName]);
-    saveDatabase();
+    await db.run('DELETE FROM general_registrations WHERE session = ?', [sessionName]);
+    await db.run('DELETE FROM member_registrations WHERE session = ?', [sessionName]);
 
     res.json({
       success: true,
@@ -1135,7 +1020,7 @@ app.delete('/api/admin/registrations/bulk/session/:sessionName', authenticateTok
 });
 
 // Delete registration (admin only)
-app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) => {
+app.delete('/api/admin/registrations/:type/:id', authenticateToken, async (req, res) => {
   const { type, id } = req.params;
 
   // Validate type
@@ -1147,14 +1032,13 @@ app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) =
     const tableName = type === 'general' ? 'general_registrations' : 'member_registrations';
 
     // Check if registration exists
-    const checkResult = db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
+    const checkResult = await db.exec(`SELECT * FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
     if (checkResult.length === 0 || checkResult[0].values.length === 0) {
       return res.status(404).json({ success: false, message: 'Registration not found' });
     }
 
     // Delete the registration
-    db.run(`DELETE FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
-    saveDatabase();
+    await db.run(`DELETE FROM ${tableName} WHERE id = ?`, [parseInt(id)]);
 
     res.json({ success: true, message: 'Registration deleted successfully' });
   } catch (err) {
@@ -1164,23 +1048,23 @@ app.delete('/api/admin/registrations/:type/:id', authenticateToken, (req, res) =
 });
 
 // Debug endpoint to check session name mismatches
-app.get('/api/admin/debug/session-names', authenticateToken, (req, res) => {
+app.get('/api/admin/debug/session-names', authenticateToken, async (req, res) => {
   try {
     // Get all session names from sessions table
-    const sessionsResult = db.exec('SELECT name FROM sessions ORDER BY name');
+    const sessionsResult = await db.exec('SELECT name FROM sessions ORDER BY name');
     const sessionNames = sessionsResult[0]?.values.map(row => row[0]) || [];
 
     // Get unique session names from general registrations
-    const generalResult = db.exec('SELECT DISTINCT session FROM general_registrations ORDER BY session');
+    const generalResult = await db.exec('SELECT DISTINCT session FROM general_registrations ORDER BY session');
     const generalSessions = generalResult[0]?.values.map(row => row[0]) || [];
 
     // Get unique session names from member registrations
-    const memberResult = db.exec('SELECT DISTINCT session FROM member_registrations ORDER BY session');
+    const memberResult = await db.exec('SELECT DISTINCT session FROM member_registrations ORDER BY session');
     const memberSessions = memberResult[0]?.values.map(row => row[0]) || [];
 
     // Get counts for each
-    const generalCountResult = db.exec('SELECT COUNT(*) as count FROM general_registrations');
-    const memberCountResult = db.exec('SELECT COUNT(*) as count FROM member_registrations');
+    const generalCountResult = await db.exec('SELECT COUNT(*) as count FROM general_registrations');
+    const memberCountResult = await db.exec('SELECT COUNT(*) as count FROM member_registrations');
 
     const generalTotal = generalCountResult[0]?.values[0]?.[0] || 0;
     const memberTotal = memberCountResult[0]?.values[0]?.[0] || 0;
@@ -1205,8 +1089,13 @@ app.get('/api/admin/debug/session-names', authenticateToken, (req, res) => {
 });
 
 // Start server
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+db.ensureSchema()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
   });
-});
