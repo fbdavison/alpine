@@ -1,11 +1,12 @@
 # Database Query Guide
 
 ## Database Location
-The SQLite database is located at: `./registrations.db`
+The app connects to Postgres via the `DATABASE_URL` environment variable (see `.env.example`).
 
 ## Available Tables
 - `general_registrations` - General public registrations
 - `member_registrations` - Member + Guest registrations
+- `sessions` - Session definitions and capacity limits
 
 ---
 
@@ -51,45 +52,38 @@ node query.js "SELECT 'General' as type, first_name, last_name, email, session F
 
 ---
 
-## Method 2: Using SQLite Command Line
+## Method 2: Using psql
 
-Open an interactive SQLite session:
+Open an interactive psql session against the configured database:
 
 ```bash
-sqlite3 registrations.db
+psql "$DATABASE_URL"
 ```
 
-Or use the helper script:
+Or use the helper script, which loads `DATABASE_URL` from `.env` for you:
 ```bash
 ./query-db.sh
 ```
 
-### Useful SQLite Commands:
+### Useful psql Commands:
 
 ```sql
 -- Show all tables
-.tables
+\dt
 
 -- Show table structure
-.schema general_registrations
-.schema member_registrations
-
--- Enable headers and column mode for better output
-.headers on
-.mode column
+\d general_registrations
+\d member_registrations
 
 -- Run queries
 SELECT * FROM general_registrations;
 SELECT * FROM member_registrations;
 
 -- Export to CSV
-.mode csv
-.output registrations.csv
-SELECT * FROM general_registrations;
-.output stdout
+\copy (SELECT * FROM general_registrations) TO 'general_registrations.csv' WITH CSV HEADER
 
 -- Exit
-.quit
+\q
 ```
 
 ---
@@ -100,13 +94,13 @@ Run queries directly from the command line:
 
 ```bash
 # Count total registrations
-sqlite3 registrations.db "SELECT COUNT(*) as total FROM general_registrations"
+psql "$DATABASE_URL" -c "SELECT COUNT(*) as total FROM general_registrations"
 
 # List all sessions with child counts
-sqlite3 registrations.db "SELECT session, SUM(num_children) as children FROM general_registrations GROUP BY session"
+psql "$DATABASE_URL" -c "SELECT session, SUM(num_children) as children FROM general_registrations GROUP BY session"
 
 # Export all data to CSV
-sqlite3 -header -csv registrations.db "SELECT * FROM general_registrations" > general_registrations.csv
+psql "$DATABASE_URL" -c "\copy (SELECT * FROM general_registrations) TO STDOUT WITH CSV HEADER" > general_registrations.csv
 ```
 
 ---
@@ -135,7 +129,7 @@ FROM (
     SELECT session, num_adults, num_children FROM general_registrations
     UNION ALL
     SELECT session, num_adults, num_children FROM member_registrations
-)
+) sub
 GROUP BY session
 ORDER BY session;
 ```
@@ -163,7 +157,7 @@ WHERE num_children > 0;
 ### Recent registrations (last 24 hours):
 ```sql
 SELECT * FROM general_registrations
-WHERE datetime(created_at) > datetime('now', '-1 day')
+WHERE created_at > now() - interval '1 day'
 ORDER BY created_at DESC;
 ```
 
