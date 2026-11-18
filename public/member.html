@@ -187,7 +187,7 @@
             <img src="/images/AV%20Logo.png" alt="Alpine Village Logo">
         </div>
         <h1>Member + Guest Registration</h1>
-        <p class="subtitle">Friends and Family Session, December 10, 6-8:30pm</p>
+        <p class="subtitle" id="sessionSubtitle">Friends and Family Session</p>
         <p class="subtitle">Please fill out all required fields</p>
         
         <div id="successMessage" class="success-message"></div>
@@ -272,6 +272,28 @@
         const childrenInputs = document.getElementById('childrenInputs');
         const form = document.getElementById('registrationForm');
 
+        // The Friends and Family session is managed on the Sessions admin page.
+        // Load the active one instead of hardcoding a date here.
+        let memberSession = null;
+        function sessionLabel(name) {
+            return name.replace(/\s*\(Friends\s*&\s*Family\)\s*$/i, '');
+        }
+        fetch('/api/sessions/member')
+            .then(r => r.json())
+            .then(result => {
+                const sessions = (result && result.sessions) || [];
+                if (sessions.length > 0) {
+                    memberSession = sessions[0].session;
+                    document.getElementById('sessionSubtitle').textContent =
+                        'Friends and Family Session, ' + sessionLabel(memberSession);
+                } else {
+                    const err = document.getElementById('errorMessage');
+                    err.textContent = 'The Friends and Family session is not currently open for registration.';
+                    err.style.display = 'block';
+                }
+            })
+            .catch(e => console.error('Failed to load Friends and Family session:', e));
+
         numChildrenSelect.addEventListener('change', function() {
             const numChildren = parseInt(this.value);
             childrenInputs.innerHTML = '';
@@ -335,8 +357,13 @@
                 }
             }
 
-            // Hardcode session to Friends and Family
-            data.session = 'Wednesday December 10, 2025 6:00-8:30p (Friends & Family)';
+            if (!memberSession) {
+                const err = document.getElementById('errorMessage');
+                err.textContent = 'The Friends and Family session is not currently open for registration.';
+                err.style.display = 'block';
+                return;
+            }
+            data.session = memberSession;
             data.request_church_info = false;
             
             try {
@@ -354,7 +381,7 @@
                     const successMsg = document.getElementById('successMessage');
                     successMsg.innerHTML = `
                         <strong>Registration Successful!</strong><br><br>
-                        Thank you for registering your guest for the Friends and Family session on December 10. A confirmation email has been sent to <strong>${data.email}</strong> with your registration details.<br><br>
+                        Thank you for registering your guest for the Friends and Family session (${sessionLabel(data.session)}). A confirmation email has been sent to <strong>${data.email}</strong> with your registration details.<br><br>
                         <strong>Member:</strong> ${data.member_first_name} ${data.member_last_name}<br>
                         <strong>Guest:</strong> ${data.first_name} ${data.last_name}<br>
                         <strong>Adults & Older Children (6th grade+):</strong> ${data.num_adults}<br>
