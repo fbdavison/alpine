@@ -20,10 +20,28 @@ const isLocalDb = /^postgres(ql)?:\/\/[^/]*@?(localhost|127\.0\.0\.1)/i.test(pro
 const sslDisabled = /sslmode=disable/i.test(process.env.DATABASE_URL) || process.env.PGSSLMODE === 'disable';
 const useSsl = !isLocalDb && !sslDisabled;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+// pg parses ssl* params out of the connection string and lets them override
+// the `ssl` option below, and it treats sslmode=require as verify-full. That
+// would re-enable strict cert checks and fail with SELF_SIGNED_CERT_IN_CHAIN,
+// so strip those params and let the `ssl` option decide.
+function stripSslParams(connectionString) {
+  try {
+    const url = new URL(connectionString);
+    ['sslmode', 'ssl', 'sslcert', 'sslkey', 'sslrootcert', 'uselibpqcompat'].forEach((p) =>
+      url.searchParams.delete(p)
+    );
+    return url.toString();
+  } catch (e) {
+    return connectionString;
+  }
+}
+
+const poolConfig = {
+  connectionString: stripSslParams(process.env.DATABASE_URL),
   ssl: useSsl ? { rejectUnauthorized: false } : false
-});
+};
+
+const pool = new Pool(poolConfig);
 
 pool.on('error', (err) => {
   console.error('Unexpected Postgres pool error:', err);
@@ -132,4 +150,4 @@ async function ensureSchema() {
   console.log('Database schema ready');
 }
 
-module.exports = { pool, exec, run, ensureSchema };
+module.exports = { pool, poolConfig, exec, run, ensureSchema };

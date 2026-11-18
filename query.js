@@ -7,9 +7,10 @@ if (fs.existsSync('.env')) {
 }
 
 const { Pool } = require('pg');
+const { poolConfig } = require('./db');
 
 async function runQuery(queryString) {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool(poolConfig);
 
   try {
     const result = await pool.query(queryString);

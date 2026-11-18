@@ -298,8 +298,18 @@
             }
         });
         
+        const submitBtn = form.querySelector('button[type="submit"]');
+        let isSubmitting = false;
+
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            // Ignore repeat clicks while a submission is in flight, so a slow
+            // response doesn't lead the user to submit a duplicate.
+            if (isSubmitting) return;
+            isSubmitting = true;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
             
             const formData = new FormData(form);
             const data = {};
@@ -360,6 +370,10 @@
                 document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
                 document.getElementById('errorMessage').style.display = 'block';
                 document.getElementById('successMessage').style.display = 'none';
+            } finally {
+                isSubmitting = false;
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Registration';
             }
         });
     </script>
