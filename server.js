@@ -246,7 +246,7 @@ async function sendMemberRegistrationEmail(registrationData) {
 
         <p>Hi ${registrationData.member_first_name},</p>
 
-        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church for the Friends and Family session on Wednesday, December 10, 6-8:30pm.</p>
+        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church for the Friends and Family session on ${String(registrationData.session).replace(/\s*\(Friends\s*&\s*Family\)\s*$/i, '')}.</p>
 
         <p><strong>Guest Name:</strong> ${registrationData.first_name} ${registrationData.last_name}</p>
         <p><strong>Adult/older children (6th grade +) tickets:</strong> ${registrationData.num_adults}</p>
