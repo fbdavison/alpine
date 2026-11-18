@@ -54,7 +54,7 @@ async function sendReminderEmail(registrationData) {
   const mailOptions = {
     from: process.env.SMTP_USER || 'your-email@example.com',
     to: registrationData.email,
-    subject: 'Alpine Village 2025 - Reminder for Your Upcoming Session',
+    subject: 'Alpine Village 2026 - Reminder for Your Upcoming Session',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
@@ -63,7 +63,7 @@ async function sendReminderEmail(registrationData) {
 
         <p>Hi ${registrationData.first_name},</p>
 
-        <p>Trinity is looking forward to having your family attend the 27th year of Alpine Village.</p>
+        <p>Trinity is looking forward to having your family attend the 28th year of Alpine Village.</p>
 
         <p>You have tickets reserved for the session on <strong>${registrationData.session}</strong>. You have <strong>${registrationData.num_adults}</strong> adult/older children (6th grade +) tickets and <strong>${registrationData.num_children}</strong> children tickets reserved.</p>
 
