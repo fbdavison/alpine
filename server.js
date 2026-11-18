@@ -19,6 +19,9 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_CHILD_LIMIT = 450;
+
+// Event year shown in email subjects and text. Update this each year.
+const EVENT_YEAR = 2026;
 // Identical registrations within this many minutes are treated as resubmits.
 const DUPLICATE_WINDOW_MINUTES = 5;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -169,7 +172,7 @@ async function sendGeneralRegistrationEmail(registrationData) {
   const mailOptions = {
     from: process.env.SMTP_USER || 'your-email@example.com',
     to: registrationData.email,
-    subject: 'Alpine Village 2025 Registration Confirmation',
+    subject: `Alpine Village ${EVENT_YEAR} Registration Confirmation`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
@@ -178,7 +181,7 @@ async function sendGeneralRegistrationEmail(registrationData) {
 
         <p>Hi ${registrationData.first_name},</p>
 
-        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church.</p>
+        <p>You have reserved the following tickets for Alpine Village ${EVENT_YEAR} at Trinity Baptist Church.</p>
 
         <p><strong>Session:</strong> ${registrationData.session}</p>
         <p><strong>Adult/older children (6th grade +) tickets:</strong> ${registrationData.num_adults}</p>
@@ -237,7 +240,7 @@ async function sendMemberRegistrationEmail(registrationData) {
   const mailOptions = {
     from: process.env.SMTP_USER || 'your-email@example.com',
     to: registrationData.email,
-    subject: 'Alpine Village 2025 Registration Confirmation',
+    subject: `Alpine Village ${EVENT_YEAR} Registration Confirmation`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
@@ -246,7 +249,7 @@ async function sendMemberRegistrationEmail(registrationData) {
 
         <p>Hi ${registrationData.member_first_name},</p>
 
-        <p>You have reserved the following tickets for Alpine Village 2025 at Trinity Baptist Church for the Friends and Family session on ${String(registrationData.session).replace(/\s*\(Friends\s*&\s*Family\)\s*$/i, '')}.</p>
+        <p>You have reserved the following tickets for Alpine Village ${EVENT_YEAR} at Trinity Baptist Church for the Friends and Family session on ${String(registrationData.session).replace(/\s*\(Friends\s*&\s*Family\)\s*$/i, '')}.</p>
 
         <p><strong>Guest Name:</strong> ${registrationData.first_name} ${registrationData.last_name}</p>
         <p><strong>Adult/older children (6th grade +) tickets:</strong> ${registrationData.num_adults}</p>
@@ -300,7 +303,7 @@ async function sendReminderEmail(registrationData) {
   const mailOptions = {
     from: process.env.SMTP_USER || 'your-email@example.com',
     to: registrationData.email,
-    subject: 'Alpine Village 2025 - Reminder for Your Upcoming Session',
+    subject: `Alpine Village ${EVENT_YEAR} - Reminder for Your Upcoming Session`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
