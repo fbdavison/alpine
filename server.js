@@ -19,6 +19,8 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SESSION_CHILD_LIMIT = 450;
+// Identical registrations within this many minutes are treated as resubmits.
+const DUPLICATE_WINDOW_MINUTES = 5;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Admin credentials (in production, use a proper user database)
@@ -618,6 +620,20 @@ app.post('/api/register/general', async (req, res) => {
       });
     }
 
+    // Treat an identical submission received in the last few minutes as a
+    // resubmit (double-click, retry after a slow response) rather than a new
+    // registration.
+    const recentDuplicate = await db.exec(`SELECT id FROM general_registrations
+      WHERE LOWER(email) = LOWER(?) AND LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)
+        AND session = ? AND num_adults = ? AND num_children = ?
+        AND created_at > NOW() - INTERVAL '${DUPLICATE_WINDOW_MINUTES} minutes'
+      LIMIT 1`,
+      [email, first_name, last_name, session, parseInt(num_adults) || 0, newChildCount]);
+    if (recentDuplicate.length > 0) {
+      console.log(`Ignoring duplicate general registration for ${email} (${session})`);
+      return res.json({ success: true, message: 'Registration successful!' });
+    }
+
     await db.run(`INSERT INTO general_registrations
       (first_name, last_name, email, phone, street_address, city, state, zip,
        num_adults, num_children, children_details, comments, request_church_info, session)
@@ -627,8 +643,10 @@ app.post('/api/register/general', async (req, res) => {
        request_church_info ? 1 : 0, session]
     );
 
-    // Send confirmation email
-    await sendGeneralRegistrationEmail({
+    // Send confirmation email in the background so a slow SMTP server
+    // doesn't delay the response (and tempt the user to submit again).
+    // Email failures are logged and never fail the registration.
+    sendGeneralRegistrationEmail({
       first_name,
       last_name,
       email,
@@ -642,7 +660,7 @@ app.post('/api/register/general', async (req, res) => {
       children_details,
       comments,
       session
-    });
+    }).catch((err) => console.error('Error sending confirmation email:', err));
 
     res.json({ success: true, message: 'Registration successful!' });
   } catch (err) {
@@ -691,6 +709,21 @@ app.post('/api/register/member', async (req, res) => {
       });
     }
 
+    // Same resubmit guard as general registrations. Email is optional for
+    // members, so match on the member + guest names instead.
+    const recentDuplicate = await db.exec(`SELECT id FROM member_registrations
+      WHERE LOWER(member_first_name) = LOWER(?) AND LOWER(member_last_name) = LOWER(?)
+        AND LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)
+        AND session = ? AND num_adults = ? AND num_children = ?
+        AND created_at > NOW() - INTERVAL '${DUPLICATE_WINDOW_MINUTES} minutes'
+      LIMIT 1`,
+      [member_first_name, member_last_name, first_name, last_name, session,
+       parseInt(num_adults) || 0, newChildCount]);
+    if (recentDuplicate.length > 0) {
+      console.log(`Ignoring duplicate member registration for ${first_name} ${last_name} (${session})`);
+      return res.json({ success: true, message: 'Registration successful!' });
+    }
+
     await db.run(`INSERT INTO member_registrations
       (member_first_name, member_last_name, first_name, last_name, email, phone,
        street_address, city, state, zip, num_adults, num_children, children_details,
@@ -702,8 +735,10 @@ app.post('/api/register/member', async (req, res) => {
        request_church_info ? 1 : 0, session]
     );
 
-    // Send confirmation email
-    await sendMemberRegistrationEmail({
+    // Send confirmation email in the background so a slow SMTP server
+    // doesn't delay the response (and tempt the user to submit again).
+    // Email failures are logged and never fail the registration.
+    sendMemberRegistrationEmail({
       member_first_name,
       member_last_name,
       first_name,
@@ -719,7 +754,7 @@ app.post('/api/register/member', async (req, res) => {
       children_details,
       comments,
       session
-    });
+    }).catch((err) => console.error('Error sending confirmation email:', err));
 
     res.json({ success: true, message: 'Registration successful!' });
   } catch (err) {
